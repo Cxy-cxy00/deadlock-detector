@@ -1,0 +1,15 @@
+build/
+*.o
+*.so
+*.dot
+*.png
+*.out
+core
+core.*
+
+# editor / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db

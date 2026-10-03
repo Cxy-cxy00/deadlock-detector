@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deadlock Detector — ภาพรวมโปรเจ็ค (Copy)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --ink:#15181d; --muted:#5d6572;
+  --line:#dfe3e9; --accent:#d64545; --accent2:#2f6fd0; --ok:#2e8b57;
+  --chip:#eef1f5; --code:#f2f4f7;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111418; --card:#1a1e24; --ink:#e8eaee; --muted:#9aa3b0;
+    --line:#2b313a; --accent:#ff6b6b; --accent2:#6aa6ff; --ok:#5fd39b;
+    --chip:#232932; --code:#1f242b;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111418; --card:#1a1e24; --ink:#e8eaee; --muted:#9aa3b0;
+  --line:#2b313a; --accent:#ff6b6b; --accent2:#6aa6ff; --ok:#5fd39b;
+  --chip:#232932; --code:#1f242b;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:860px; margin:0 auto; padding:32px 20px 64px}
+header{margin-bottom:36px}
+.kicker{font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600}
+h1{font-size:clamp(26px,5vw,38px); line-height:1.25; margin:6px 0 10px; font-weight:700}
+.sub{color:var(--muted); font-size:16px; margin:0}
+.tags{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px}
+.tag{background:var(--chip); border:1px solid var(--line); border-radius:999px; padding:4px 12px; font-size:13px; color:var(--muted)}
+section{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px; margin-bottom:20px}
+h2{font-size:19px; margin:0 0 4px; font-weight:600; display:flex; align-items:center; gap:10px}
+.num{background:var(--accent2); color:#fff; width:26px; height:26px; border-radius:8px;
+  display:inline-flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; flex:none}
+.lead{color:var(--muted); font-size:15px; margin:0 0 16px}
+p{margin:0 0 12px}
+svg{display:block; width:100%; height:auto; max-width:100%}
+.figure{background:var(--code); border:1px solid var(--line); border-radius:10px; padding:16px; margin:14px 0}
+.cap{font-size:13px; color:var(--muted); text-align:center; margin-top:10px}
+pre{background:var(--code); border:1px solid var(--line); border-radius:10px; padding:14px;
+  overflow-x:auto; font-family:"JetBrains Mono",ui-monospace,monospace; font-size:13px; line-height:1.6; margin:12px 0}
+code{font-family:"JetBrains Mono",ui-monospace,monospace; font-size:.92em;
+  background:var(--chip); padding:1px 5px; border-radius:5px}
+pre code{background:none; padding:0}
+.tablewrap{overflow-x:auto; margin:12px 0}
+table{border-collapse:collapse; width:100%; font-size:14px; min-width:420px}
+th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line); vertical-align:top}
+th{font-weight:600; color:var(--muted); font-size:13px; text-transform:uppercase; letter-spacing:.04em}
+tr:last-child td{border-bottom:none}
+.grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin-top:14px}
+.box{background:var(--code); border:1px solid var(--line); border-radius:10px; padding:14px}
+.box h3{margin:0 0 6px; font-size:15px; font-weight:600}
+.box p{margin:0; font-size:14px; color:var(--muted)}
+.bad{color:var(--accent); font-weight:600}
+.good{color:var(--ok); font-weight:600}
+.steps{list-style:none; padding:0; margin:12px 0 0; counter-reset:s}
+.steps li{counter-increment:s; position:relative; padding-left:38px; margin-bottom:12px; font-size:15px}
+.steps li::before{content:counter(s); position:absolute; left:0; top:1px;
+  width:25px; height:25px; border-radius:7px; background:var(--chip); border:1px solid var(--line);
+  display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:var(--ink)}
+footer{color:var(--muted); font-size:13px; text-align:center; margin-top:28px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">03603332 Operating Systems · Group Project</div>
+  <h1>Deadlock Detector</h1>
+  <p class="sub">เครื่องมือหา deadlock ในโปรแกรม multithread โดยไม่ต้องแก้โค้ดของโปรแกรมนั้นเลย</p>
+  <div class="tags">
+    <span class="tag">ภาษา C</span><span class="tag">Linux</span>
+    <span class="tag">LD_PRELOAD</span><span class="tag">pthread</span>
+    <span class="tag">บท Deadlocks</span><span class="tag">ความยาก 3.5 / 5</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="num">1</span>ปัญหาคืออะไร</h2>
+  <p class="lead">โปรแกรมหลาย thread ที่ล็อกสลับลำดับกัน จะค้างทั้งโปรแกรมโดยไม่มี error อะไรออกมาเลย</p>
+
+  <div class="figure">
+    <svg viewBox="0 0 640 230" role="img" aria-label="Thread สองตัวล็อกสลับลำดับกันจนเกิด deadlock">
+      <defs>
+        <marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+          <path d="M0,0 L9,4.5 L0,9 z" fill="var(--accent)"/>
+        </marker>
+        <marker id="ag" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+          <path d="M0,0 L9,4.5 L0,9 z" fill="var(--ok)"/>
+        </marker>
+      </defs>
+      <rect x="20" y="20" width="150" height="54" rx="10" fill="var(--card)" stroke="var(--line)" stroke-width="1.5"/>
+      <text x="95" y="43" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">Thread 1</text>
+      <text x="95" y="62" text-anchor="middle" font-size="12" fill="var(--muted)">โอนเงิน A → B</text>
+
+      <rect x="470" y="20" width="150" height="54" rx="10" fill="var(--card)" stroke="var(--line)" stroke-width="1.5"/>
+      <text x="545" y="43" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">Thread 2</text>
+      <text x="545" y="62" text-anchor="middle" font-size="12" fill="var(--muted)">โอนเงิน B → A</text>
+
+      <rect x="215" y="140" width="90" height="54" rx="10" fill="var(--chip)" stroke="var(--line)" stroke-width="1.5"/>
+      <text x="260" y="165" text-anchor="middle" font-size="14" font-weight="600" fill="var(--ink)">mutex A</text>
+      <text x="260" y="182" text-anchor="middle" font-size="11" fill="var(--muted)">บัญชี A</text>
+
+      <rect x="335" y="140" width="90" height="54" rx="10" fill="var(--chip)" stroke="var(--line)" stroke-width="1.5"/>
+      <text x="380" y="165" text-anchor="middle" font-size="14" font-weight="600" fill="var(--ink)">mutex B</text>
+      <text x="380" y="182" text-anchor="middle" font-size="11" fill="var(--muted)">บัญชี B</text>
+
+      <path d="M95,78 L95,120 L235,138" fill="none" stroke="var(--ok)" stroke-width="2" marker-end="url(#ag)"/>
+      <text x="108" y="108" font-size="12" fill="var(--ok)" font-weight="600">ถือไว้แล้ว</text>
+
+      <path d="M545,78 L545,120 L405,138" fill="none" stroke="var(--ok)" stroke-width="2" marker-end="url(#ag)"/>
+      <text x="466" y="108" font-size="12" fill="var(--ok)" font-weight="600" text-anchor="end">ถือไว้แล้ว</text>
+
+      <path d="M150,52 L330,145" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ar)"/>
+      <text x="252" y="92" font-size="12" fill="var(--accent)" font-weight="600">อยากได้ B → รอ</text>
+
+      <path d="M490,52 L310,145" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ar)"/>
+      <text x="390" y="120" font-size="12" fill="var(--accent)" font-weight="600" text-anchor="end">อยากได้ A → รอ</text>
+
+      <text x="320" y="222" text-anchor="middle" font-size="13" font-weight="700" fill="var(--accent)">ต่างคนต่างรอกันและกัน = DEADLOCK ค้างตลอดไป</text>
+    </svg>
+    <div class="cap">ต่างคนต่างถือของที่อีกฝ่ายต้องการ ไม่มีใครยอมปล่อย</div>
+  </div>
+
+  <p>อาการที่เห็นคือ <span class="bad">โปรแกรมเงียบไปเฉย ๆ</span> ไม่ crash ไม่มี error CPU เป็น 0% ต้องเดาเองว่าค้างตรงไหน</p>
+</section>
+
+<section>
+  <h2><span class="num">2</span>เครื่องมือของเราทำอะไร</h2>
+  <p class="lead">รันโปรแกรมผ่านเครื่องมือ แล้วมันบอกเลยว่า thread ไหนรออะไร ใครถืออยู่ และผิดที่บรรทัดไหน</p>
+
+  <pre><code>$ ./bank                                 <span style="color:var(--accent)"># ค้าง ไม่มีอะไรบอก</span>
+^C
+
+$ LD_PRELOAD=./libdetect.so ./bank       <span style="color:var(--ok)"># รันผ่านเครื่องมือของเรา</span>
+
+[DEADLOCK DETECTED] 2 threads in cycle
+
+  Thread 140234
+      holds   mutex 0x5591a0   at bank.c:42
+      waiting mutex 0x5591c0   at bank.c:47
+  Thread 140235
+      holds   mutex 0x5591c0   at bank.c:63
+      waiting mutex 0x5591a0   at bank.c:68
+
+  Cycle: T140234 -> T140235 -> T140234
+  Hint : acquire locks in a consistent global order</code></pre>
+
+  <div class="grid">
+    <div class="box"><h3>ไม่ต้องแก้โค้ด</h3><p>โปรแกรมเป้าหมายไม่ต้องแก้ ไม่ต้อง compile ใหม่</p></div>
+    <div class="box"><h3>ใช้กับของจริงได้</h3><p>ใช้กับโปรแกรมที่คนอื่นเขียนได้ทันที</p></div>
+    <div class="box"><h3>บอกบรรทัดที่ผิด</h3><p>ชี้ไปที่บรรทัดใน source ได้เลย</p></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">3</span>มันแทรกตัวอยู่ตรงไหน</h2>
+  <p class="lead">เราวางตัวคั่นระหว่างโปรแกรมกับ library ของระบบ ทุกการล็อกจึงวิ่งผ่านเราก่อน</p>
+
+  <div class="figure">
+    <svg viewBox="0 0 640 330" role="img" aria-label="ลำดับชั้นของโปรแกรม ไลบรารีของเรา libpthread และ kernel">
+      <defs>
+        <marker id="ad" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto">
+          <path d="M0,0 L9,4.5 L0,9 z" fill="var(--muted)"/>
+        </marker>
+      </defs>
+
+      <rect x="70" y="12" width="500" height="58" rx="10" fill="var(--card)" stroke="var(--line)" stroke-width="1.5"/>
+      <text x="320" y="35" text-anchor="middle" font-size="15" font-weight="600" fill="var(--ink)">โปรแกรมเป้าหมาย (ของใครก็ได้)</text>
+      <text x="320" y="55" text-anchor="middle" font-size="12" fill="var(--muted)" font-family="monospace">pthread_mutex_lock(&amp;A)</text>
+
+      <path d="M320,72 L320,96" stroke="var(--muted)" stroke-width="1.8" marker-end="url(#ad)"/>
+
+      <rect x="70" y="100" width="500" height="78" rx="10" fill="var(--card)" stroke="var(--accent2)" stroke-width="2.5"/>
+      <text x="320" y="124" text-anchor="middle" font-size="15" font-weight="700" fill="var(--accent2)">libdetect.so &nbsp;←&nbsp; โปรเจ็คของเรา</text>
+      <text x="320" y="145" text-anchor="middle" font-size="12" fill="var(--muted)">1. จดว่า “T1 กำลังจะรอ A”</text>
+      <text x="320" y="163" text-anchor="middle" font-size="12" fill="var(--muted)">2. เรียกตัวจริง&nbsp;&nbsp;·&nbsp;&nbsp;3. จดว่า “T1 ได้ A แล้ว”</text>
+
+      <path d="M320,180 L320,204" stroke="var(--muted)" stroke-width="1.8" marker-end="url(#ad)"/>
+
+      <rect x="70" y="208" width="500" height="48" rx="10" fill="var(--chip)" stroke="var(--line)" stroke-width="1.5"/>
+      <text x="320" y="237" text-anchor="middle" font-size="14" fill="var(--ink)">libpthread.so — ตัวจริงที่ทำการล็อก</text>
+
+      <path d="M320,258 L320,280" stroke="var(--muted)" stroke-width="1.8" marker-end="url(#ad)"/>
+
+      <rect x="70" y="284" width="500" height="42" rx="10" fill="var(--chip)" stroke="var(--line)" stroke-width="1.5" stroke-dasharray="5 4"/>
+      <text x="320" y="310" text-anchor="middle" font-size="14" fill="var(--muted)">Linux kernel — เราไม่แตะตรงนี้</text>
+
+      <text x="600" y="145" font-size="11" fill="var(--muted)" text-anchor="end">user space</text>
+      <text x="600" y="310" font-size="11" fill="var(--muted)" text-anchor="end">kernel space</text>
+    </svg>
+    <div class="cap">ตัวแปร <code>LD_PRELOAD</code> สั่งให้ dynamic linker โหลด library ของเราก่อน ฟังก์ชันชื่อเดียวกันของเราจึงถูกเรียกแทน</div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">4</span>ตรวจเจอได้อย่างไร</h2>
+  <p class="lead">สร้าง wait-for graph แล้วหา cycle — ตรงตามทฤษฎีในบท Deadlocks</p>
+
+  <div class="figure">
+    <svg viewBox="0 0 640 210" role="img" aria-label="wait-for graph ที่มี cycle">
+      <defs>
+        <marker id="ac" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/>
+        </marker>
+      </defs>
+      <text x="320" y="22" text-anchor="middle" font-size="13" fill="var(--muted)">node = thread&nbsp;&nbsp;·&nbsp;&nbsp;edge = “รอปลดล็อกจาก”</text>
+
+      <circle cx="160" cy="115" r="38" fill="var(--card)" stroke="var(--accent)" stroke-width="2.5"/>
+      <text x="160" y="121" text-anchor="middle" font-size="16" font-weight="700" fill="var(--ink)">T1</text>
+
+      <circle cx="380" cy="115" r="38" fill="var(--card)" stroke="var(--accent)" stroke-width="2.5"/>
+      <text x="380" y="121" text-anchor="middle" font-size="16" font-weight="700" fill="var(--ink)">T2</text>
+
+      <path d="M190,92 Q270,52 352,92" fill="none" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#ac)"/>
+      <text x="270" y="55" text-anchor="middle" font-size="12" fill="var(--accent)" font-weight="600">รอ mutex B</text>
+
+      <path d="M350,140 Q270,180 188,140" fill="none" stroke="var(--accent)" stroke-width="2.5" marker-end="url(#ac)"/>
+      <text x="270" y="196" text-anchor="middle" font-size="12" fill="var(--accent)" font-weight="600">รอ mutex A</text>
+
+      <text x="530" y="100" text-anchor="middle" font-size="14" font-weight="700" fill="var(--accent)">มี cycle</text>
+      <text x="530" y="122" text-anchor="middle" font-size="13" fill="var(--muted)">= deadlock</text>
+    </svg>
+    <div class="cap">ถ้า DFS เจอ cycle แปลว่าเกิด deadlock แล้ว</div>
+  </div>
+
+  <div class="tablewrap">
+  <table>
+    <tr><th>เวลา</th><th>เกิดอะไร</th><th>ตารางของเรา</th></tr>
+    <tr><td>t0</td><td>T1 ล็อก A ได้</td><td>holder[A] = T1</td></tr>
+    <tr><td>t1</td><td>T2 ล็อก B ได้</td><td>holder[B] = T2</td></tr>
+    <tr><td>t2</td><td>T1 ขอ B → ค้าง</td><td>edge T1 → T2</td></tr>
+    <tr><td>t3</td><td>T2 ขอ A → ค้าง</td><td>edge T2 → T1</td></tr>
+    <tr><td>t3.5</td><td>detector thread ตื่นมาตรวจ</td><td class="bad">เจอ cycle → พิมพ์รายงาน</td></tr>
+  </table>
+  </div>
+
+  <p style="font-size:14px;color:var(--muted);margin:0">T1 กับ T2 ค้างอยู่ทั้งคู่ แต่ detector เป็นคนละ thread จึงยังทำงานและรายงานออกมาได้</p>
+</section>
+
+<section>
+  <h2><span class="num">5</span>Demo ตอนนำเสนอ</h2>
+  <ol class="steps">
+    <li>รันโปรแกรมโอนเงินธรรมดา → <span class="bad">ค้างเฉย ๆ ไม่มีอะไรบอก</span></li>
+    <li>รันใหม่ด้วย <code>LD_PRELOAD</code> → <span class="good">รายงานออกมาพร้อมบรรทัดที่ผิด</span></li>
+    <li>เปิดภาพ cycle ที่ export เป็น Graphviz</li>
+    <li>แก้โค้ดให้ล็อกตามลำดับเดียวกัน → รันใหม่ ไม่มีรายงานแล้ว</li>
+    <li>รันกับโปรแกรมที่ไม่ได้เขียนเอง เพื่อยืนยันว่าใช้กับของจริงได้</li>
+  </ol>
+</section>
+
+<section>
+  <h2><span class="num">6</span>แบ่งงาน 5 คน</h2>
+  <div class="tablewrap">
+  <table>
+    <tr><th>คน</th><th>รับผิดชอบ</th><th>หัวข้อที่ present</th></tr>
+    <tr><td>1</td><td>ดักฟังก์ชัน pthread ด้วย LD_PRELOAD</td><td>dynamic linking</td></tr>
+    <tr><td>2</td><td>ตารางสถานะ thread / mutex</td><td>process &amp; thread state</td></tr>
+    <tr><td>3</td><td>Wait-for graph + cycle detection</td><td>resource allocation graph</td></tr>
+    <tr><td>4</td><td>Lock-order inversion + ชี้บรรทัด</td><td>prevention vs detection</td></tr>
+    <tr><td>5</td><td>โปรแกรมทดสอบ + Graphviz + รายงาน</td><td>demo &amp; ข้อจำกัด</td></tr>
+  </table>
+  </div>
+</section>
+
+<footer>ครอบคลุมเนื้อหาบท Deadlocks: เงื่อนไข Coffman · wait-for graph · detection · prevention · lock ordering</footer>
+
+</div>
+</body>
+</html>
