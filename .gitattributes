@@ -1,0 +1,5 @@
+# โปรเจ็คนี้ build และรันบน Linux — เก็บ/เช็คเอาต์เป็น LF เสมอ
+* text=auto eol=lf
+*.html text eol=lf
+*.sh   text eol=lf
+*.png  binary
