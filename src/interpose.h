@@ -20,6 +20,9 @@ void dd_interpose_resolve(void);
 /* thread id ที่ใช้รายงาน — เป็น kernel TID ตรงกับที่ ps -L / top -H / gdb แสดง */
 dd_tid_t dd_self(void);
 
+/* บอกว่า thread ที่เรียกเป็นของเราเอง — lock ของมันจะไม่ถูกบันทึกลงตาราง */
+void dd_interpose_mark_self_internal(void);
+
 /* ---- เก็บ return address ของผู้เรียก เพื่อ map เป็น file:line ภายหลัง ----
  *
  * ต้องใช้ผ่าน "มาโคร" DD_CALLER_SITE() ไม่ใช่เรียกฟังก์ชันตรง ๆ

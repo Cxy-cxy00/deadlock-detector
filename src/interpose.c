@@ -63,6 +63,12 @@ dd_site_t dd_site_from_pc(void *pc) {
  * ระวังไก่กับไข่: dlsym อาจเรียก malloc ข้างใน -> malloc เรียก pthread_mutex_lock
  * -> คือตัวเรา -> เราเรียก dlsym อีก -> วนไม่สิ้นสุด  ธง in_dd ตัดวงนี้
  */
+/* ประกาศว่า thread ที่เรียกเป็น thread ภายในของเราเอง (detector)
+ * ตั้งธงค้างไว้ถาวร ทุก lock ที่ thread นี้ทำจะผ่านไปตัวจริงโดยไม่ถูกบันทึก
+ * ป้องกันไม่ให้ detector โผล่ไปเป็น node ในกราฟที่ตัวเองกำลังตรวจ
+ */
+void dd_interpose_mark_self_internal(void) { in_dd = 1; }
+
 void dd_interpose_resolve(void) {
     if (in_dd) return;
     in_dd = 1;
