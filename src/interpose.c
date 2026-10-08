@@ -1,9 +1,9 @@
 /* interpose.c — ดัก pthread_mutex_* ด้วย LD_PRELOAD  (ผู้รับผิดชอบ: คนที่ 1)
  *
- * ===== รอบที่ 1: pass-through ล้วน — ยังไม่ต่อ state.c =====
- * เป้าหมายรอบนี้คือพิสูจน์ว่าโปรแกรมเป้าหมายทำงาน "เหมือนเดิมเป๊ะ" ทั้งที่โค้ดเรา
- * แทรกอยู่กลาง  ถ้าข้อนี้ไม่ผ่าน ขั้นถัด ๆ ไปไม่มีความหมาย
- * รอบที่ 2 (หลัง state.c เสร็จ) ค่อยเสียบ dd_state_* ตามจุดที่คอมเมนต์ TODO ไว้
+ * ===== สถานะ: ต่อ state.c เข้ามาแล้ว (ขั้น 3 รอบที่ 2) =====
+ * รอบที่ 1 ทำ pass-through ล้วนก่อน เพื่อพิสูจน์ว่าโปรแกรมเป้าหมายทำงานเหมือนเดิมเป๊ะ
+ * รอบที่ 2 เสียบ dd_state_* ตามจุดที่เคยทำเครื่องหมาย TODO ไว้
+ * ตารางสถานะจึงมีข้อมูลครบแล้ว รอ graph.c (ขั้น 5) มาอ่านไปสร้าง wait-for graph
  *
  * ===== กลไก =====
  * LD_PRELOAD แทรก .so ของเราไว้หน้าสุดของลำดับค้นหาสัญลักษณ์
@@ -25,7 +25,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include "interpose.h"
-#include "state.h"      /* ยังไม่ได้ใช้ในรอบที่ 1 — รอบที่ 2 จะเสียบตรงจุด TODO */
+#include "state.h"
 
 dd_mutex_fn_t real_mutex_lock    = NULL;
 dd_mutex_fn_t real_mutex_trylock = NULL;
@@ -103,15 +103,17 @@ int pthread_mutex_lock(pthread_mutex_t *m) {
 
     in_dd = 1;
     dd_dbgf("lock    %p tid=%lu pc=%p\n", (void *)m, dd_self(), pc);
-    /* TODO รอบที่ 2: dd_state_wait_begin(dd_self(), m, dd_site_from_pc(pc)); */
+    dd_state_wait_begin(dd_self(), m, dd_site_from_pc(pc));
     in_dd = 0;
 
     /* ---- จุดที่ค้างจริงตอนเกิด deadlock ---- */
     int rc = real_mutex_lock(m);
 
     in_dd = 1;
-    /* TODO รอบที่ 2: dd_state_wait_end(dd_self(), m);   <- ต้องเรียกแม้ rc != 0
-     *                if (rc == 0) dd_state_acquired(dd_self(), m, dd_site_from_pc(pc)); */
+    /* ต้องเรียก wait_end แม้ rc != 0 ไม่งั้นมี wait edge ผีค้างในตาราง
+     * -> detector จะรายงาน deadlock ที่ไม่มีจริง */
+    dd_state_wait_end(dd_self(), m);
+    if (rc == 0) dd_state_acquired(dd_self(), m, dd_site_from_pc(pc));
     dd_dbgf("locked  %p tid=%lu rc=%d\n", (void *)m, dd_self(), rc);
     in_dd = 0;
 
@@ -134,7 +136,7 @@ int pthread_mutex_trylock(pthread_mutex_t *m) {
     int rc = real_mutex_trylock(m);
 
     in_dd = 1;
-    /* TODO รอบที่ 2: if (rc == 0) dd_state_acquired(dd_self(), m, dd_site_from_pc(pc)); */
+    if (rc == 0) dd_state_acquired(dd_self(), m, dd_site_from_pc(pc));
     dd_dbgf("trylock %p tid=%lu rc=%d pc=%p\n", (void *)m, dd_self(), rc, pc);
     in_dd = 0;
 
@@ -156,7 +158,7 @@ int pthread_mutex_unlock(pthread_mutex_t *m) {
      * พอเราค่อยมาจดทีหลังจะไปลบข้อมูลของเขาทิ้ง
      */
     in_dd = 1;
-    /* TODO รอบที่ 2: dd_state_released(dd_self(), m); */
+    dd_state_released(dd_self(), m);
     dd_dbgf("unlock  %p tid=%lu\n", (void *)m, dd_self());
     in_dd = 0;
 

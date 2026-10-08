@@ -38,6 +38,9 @@ void dd_state_released  (dd_tid_t t, dd_mutex_t m);
 void dd_state_lock(void);
 void dd_state_unlock(void);
 
+/* พิมพ์ตารางทั้งใบออก stderr เมื่อตั้ง DD_VERBOSE — ใช้ debug ขั้น 5-6 */
+void dd_state_dump(void);
+
 size_t dd_state_waits (const dd_wait_t **out);   /* คืนจำนวน + ชี้ไปที่ array */
 size_t dd_state_holds (const dd_hold_t **out);
 int    dd_state_holder_of(dd_mutex_t m, dd_tid_t *out);  /* 1 = เจอ, 0 = ว่าง */
