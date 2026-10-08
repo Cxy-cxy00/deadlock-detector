@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Deadlock Detector — ลองรันจริง</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --ink:#15181d; --muted:#5d6572;
+  --line:#dfe3e9; --accent:#d64545; --accent2:#2f6fd0; --ok:#2e8b57;
+  --warn:#c77a16; --chip:#eef1f5; --code:#f2f4f7;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111418; --card:#1a1e24; --ink:#e8eaee; --muted:#9aa3b0;
+    --line:#2b313a; --accent:#ff6b6b; --accent2:#6aa6ff; --ok:#5fd39b;
+    --warn:#e0a84e; --chip:#232932; --code:#1f242b;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111418; --card:#1a1e24; --ink:#e8eaee; --muted:#9aa3b0;
+  --line:#2b313a; --accent:#ff6b6b; --accent2:#6aa6ff; --ok:#5fd39b;
+  --warn:#e0a84e; --chip:#232932; --code:#1f242b;
+}
+*,*::before,*::after{box-sizing:inherit}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:960px; margin:0 auto; padding:32px 20px 64px}
+header{margin-bottom:30px}
+.kicker{font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600}
+h1{font-size:clamp(26px,5vw,36px); line-height:1.25; margin:6px 0 10px; font-weight:700}
+.sub{color:var(--muted); font-size:16px; margin:0}
+.nav{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px}
+.nav a{background:var(--chip); border:1px solid var(--line); border-radius:999px;
+  padding:5px 13px; font-size:13px; color:var(--muted); text-decoration:none}
+.nav a:hover{color:var(--ink); border-color:var(--accent2)}
+.nav a.here{background:var(--accent2); border-color:var(--accent2); color:#fff; font-weight:600}
+section{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px; margin-bottom:20px}
+h2{font-size:19px; margin:0 0 4px; font-weight:600; display:flex; align-items:center; gap:10px}
+.num{background:var(--accent2); color:#fff; width:26px; height:26px; border-radius:8px;
+  display:inline-flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; flex:none}
+.lead{color:var(--muted); font-size:15px; margin:0 0 16px}
+p{margin:0 0 12px}
+pre{background:var(--code); border:1px solid var(--line); border-radius:10px; padding:14px;
+  overflow-x:auto; font-family:"JetBrains Mono",ui-monospace,monospace; font-size:13px; line-height:1.6; margin:12px 0}
+code{font-family:"JetBrains Mono",ui-monospace,monospace; font-size:.92em;
+  background:var(--chip); padding:1px 5px; border-radius:5px}
+pre code{background:none; padding:0}
+table{border-collapse:collapse; width:100%; font-size:14px}
+th,td{text-align:left; padding:8px 11px; border-bottom:1px solid var(--line); vertical-align:top}
+th{font-weight:600; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.04em}
+tr:last-child td{border-bottom:none}
+.tablewrap{overflow-x:auto; margin:12px 0}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace; font-size:12.5px}
+.bad{color:var(--accent); font-weight:600}
+.good{color:var(--ok); font-weight:600}
+.warn{color:var(--warn); font-weight:600}
+
+/* ---- แผงควบคุม ---- */
+.controls{display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin:14px 0}
+select,textarea,button{font-family:inherit; font-size:14px}
+select{background:var(--card); color:var(--ink); border:1px solid var(--line);
+  border-radius:9px; padding:8px 11px}
+textarea{
+  width:100%; min-height:330px; resize:vertical;
+  background:var(--code); color:var(--ink); border:1px solid var(--line); border-radius:10px;
+  padding:14px; font-family:"JetBrains Mono",ui-monospace,monospace; font-size:13px; line-height:1.6;
+  tab-size:4;
+}
+textarea:focus,select:focus{outline:2px solid var(--accent2); outline-offset:1px}
+button{
+  border:1px solid var(--line); background:var(--chip); color:var(--ink);
+  border-radius:9px; padding:9px 16px; cursor:pointer; font-weight:600;
+}
+button:hover:not(:disabled){border-color:var(--accent2)}
+button:disabled{opacity:.5; cursor:not-allowed}
+button.primary{background:var(--accent2); border-color:var(--accent2); color:#fff}
+button.danger{background:var(--accent); border-color:var(--accent); color:#fff}
+.status{font-size:14px; color:var(--muted); margin:10px 0 0; min-height:22px}
+.hint{font-size:13px; color:var(--muted); margin:8px 0 0}
+
+/* ---- ผลลัพธ์ ---- */
+.badge{display:inline-block; border-radius:999px; padding:4px 13px; font-size:13px; font-weight:600;
+  border:1px solid var(--line); background:var(--chip)}
+.badge.ok{background:var(--ok); border-color:var(--ok); color:#fff}
+.badge.hang{background:var(--accent); border-color:var(--accent); color:#fff}
+.badge.err{background:var(--warn); border-color:var(--warn); color:#fff}
+.panel{border:1px solid var(--line); border-radius:10px; padding:14px; margin:12px 0; background:var(--code)}
+.panel h3{margin:0 0 8px; font-size:14px; font-weight:600; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.04em}
+.report{border-left:3px solid var(--accent)}
+details{margin:10px 0}
+summary{cursor:pointer; font-size:14px; color:var(--muted); user-select:none}
+summary:hover{color:var(--ink)}
+svg.graph{display:block; width:100%; height:auto; max-width:100%; margin:6px 0}
+.legend{display:flex; flex-wrap:wrap; gap:16px; font-size:13px; color:var(--muted); margin-top:6px}
+.legend span{display:inline-flex; align-items:center; gap:6px}
+.swatch{width:22px; height:3px; border-radius:2px; display:inline-block}
+.notice{background:var(--chip); border:1px solid var(--warn); border-left:3px solid var(--warn);
+  border-radius:10px; padding:13px 15px; font-size:14px; margin:14px 0}
+footer{color:var(--muted); font-size:13px; text-align:center; margin-top:28px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">03603332 Operating Systems · Group Project</div>
+  <h1>ลองรันเครื่องมือจริง</h1>
+  <p class="sub">วางโค้ด C ที่มี deadlock ลงไป แล้วดูว่าเครื่องมือจับได้อย่างไร — รันของจริงบนเครื่องนี้</p>
+  <nav class="nav">
+    <a href="overview.html">ภาพรวมโปรเจ็ค</a>
+    <a href="banker.html">Banker's Algorithm</a>
+    <a class="here" href="playground.html">ลองรันจริง</a>
+  </nav>
+</header>
+
+<div id="offlineNotice" class="notice" style="display:none">
+  <strong>หน้านี้เปิดจากไฟล์โดยตรง จึงรันโค้ดไม่ได้</strong><br>
+  ส่วนอธิบายด้านล่างอ่านได้ตามปกติ แต่ถ้าอยากกดรันจริง ให้เปิดผ่านเซิร์ฟเวอร์ใน WSL:
+  <pre style="margin-top:10px"><code>cd /mnt/d/Project_OS/deadlock-detector
+make playground</code></pre>
+  แล้วเปิด <code>http://127.0.0.1:8000</code>
+</div>
+
+<!-- ============================================================ 1 -->
+<section>
+  <h2><span class="num">1</span> ปัญหาที่เครื่องมือนี้แก้</h2>
+  <p class="lead">deadlock เป็นบั๊กที่ไม่ยอมบอกอะไรเลย</p>
+  <p>
+    โปรแกรมหลาย thread ที่ล็อก mutex สลับลำดับกันจะค้างทั้งโปรแกรม
+    อาการที่เห็นคือ <strong>เงียบไปเฉย ๆ</strong> ไม่ crash ไม่มี error ไม่มี stack trace
+    CPU เป็น 0% แล้วต้องเดาเองว่าค้างตรงไหน
+  </p>
+<pre><code>Thread 1 (โอน A → B)          Thread 2 (โอน B → A)
+  lock(mutex A)  สำเร็จ          lock(mutex B)  สำเร็จ
+  lock(mutex B)  ← รอ            lock(mutex A)  ← รอ</code></pre>
+  <p>ต่างคนต่างถือของที่อีกฝ่ายต้องการ ไม่มีใครยอมปล่อย</p>
+</section>
+
+<!-- ============================================================ 2 -->
+<section>
+  <h2><span class="num">2</span> เครื่องมือแทรกตัวอยู่ตรงไหน</h2>
+  <p class="lead">ไม่ต้องแก้โค้ดโปรแกรมเป้าหมาย ไม่ต้อง compile ใหม่</p>
+<pre><code>โปรแกรมเป้าหมาย        pthread_mutex_lock(&amp;A)
+        │
+        ▼
+libdetect.so  ← โปรเจ็คนี้   1. จดว่า "T1 กำลังจะรอ A"
+                            2. เรียกตัวจริง   ← ค้างตรงนี้ตอนเกิด deadlock
+                            3. จดว่า "T1 ได้ A แล้ว"
+        │
+        ▼
+libc.so.6                  ตัวจริงที่ทำการล็อก</code></pre>
+  <p>
+    <code>LD_PRELOAD</code> สั่งให้ dynamic linker โหลด library ของเราไว้หน้าสุด
+    ฟังก์ชันชื่อซ้ำของเราจึงถูกเรียกแทน และเรายังเรียกตัวจริงต่อได้ผ่าน
+    <code>dlsym(RTLD_NEXT, ...)</code>
+  </p>
+</section>
+
+<!-- ============================================================ 3 -->
+<section>
+  <h2><span class="num">3</span> ตรวจเจอได้อย่างไร</h2>
+  <p class="lead">สร้าง wait-for graph แล้วหา cycle ด้วย DFS</p>
+  <p>
+    node คือ thread · edge <code>T1 → T2</code> แปลว่า "T1 รอ mutex ที่ T2 ถืออยู่"
+    <strong>มี cycle = เกิด deadlock แล้ว</strong>
+  </p>
+  <p>
+    thread ของโปรแกรมเป้าหมายค้างกันหมดแล้วก็จริง แต่ detector เป็น thread ของ
+    library เราเอง จึงยังทำงานและรายงานออกมาได้ — ตรวจทุก 500 มิลลิวินาที
+  </p>
+</section>
+
+<!-- ============================================================ 4 -->
+<section>
+  <h2><span class="num">4</span> ลองเอง</h2>
+  <p class="lead">เลือกตัวอย่าง หรือวางโค้ด C ของคุณเองลงไปก็ได้</p>
+
+  <div class="controls">
+    <label for="preset" style="font-size:14px; color:var(--muted)">ตัวอย่าง</label>
+    <select id="preset"></select>
+    <label for="timeout" style="font-size:14px; color:var(--muted)">ตัดที่</label>
+    <select id="timeout">
+      <option value="3">3 วินาที</option>
+      <option value="5" selected>5 วินาที</option>
+      <option value="10">10 วินาที</option>
+    </select>
+  </div>
+
+  <textarea id="code" spellcheck="false"></textarea>
+
+  <div class="controls">
+    <button id="runPlain">รันแบบปกติ</button>
+    <button id="runDetect" class="primary">รันผ่านเครื่องมือ</button>
+    <span class="status" id="status"></span>
+  </div>
+  <p class="hint">
+    โค้ดถูก compile ด้วย <code>gcc -std=c11 -Wall -Wextra -g -O0 -pthread</code>
+    แล้วรันในโฟลเดอร์ชั่วคราว เสร็จแล้วลบทิ้งอัตโนมัติ
+  </p>
+</section>
+
+<!-- ============================================================ 5 -->
+<section id="resultSection" style="display:none">
+  <h2><span class="num">5</span> ผลลัพธ์</h2>
+  <div id="result"></div>
+</section>
+
+<!-- ============================================================ 6 -->
+<section>
+  <h2><span class="num">6</span> ข้อจำกัดที่รู้อยู่</h2>
+  <div class="tablewrap">
+  <table>
+    <tr><th>เรื่อง</th><th>รายละเอียด</th></tr>
+    <tr><td>ดักเฉพาะ <code>pthread_mutex_*</code></td><td>rwlock, semaphore, condition variable ยังไม่รองรับ</td></tr>
+    <tr><td>ต้อง dynamic link</td><td>binary ที่ลิงก์ <code>libpthread</code> แบบ static ใช้ไม่ได้</td></tr>
+    <tr><td>detection ไม่ใช่ prevention</td><td>บอกว่าค้าง<strong>ที่ไหน</strong> ไม่ได้ทำให้ไม่ค้าง</td></tr>
+    <tr><td>ชี้บรรทัดต้องมี <code>-g</code></td><td>ไม่มี debug info ก็ยังบอกได้ว่าใครค้างกับใคร แต่แสดงเป็น <code>pc</code> ดิบ</td></tr>
+    <tr><td>ไม่รองรับ recursive mutex</td><td>thread เดิมล็อกตัวเดิมซ้ำจะนับเป็นครั้งเดียว</td></tr>
+    <tr><td>Linux เท่านั้น</td><td><code>LD_PRELOAD</code> เป็นกลไกของ glibc dynamic linker</td></tr>
+  </table>
+  </div>
+</section>
+
+<footer>
+  Deadlock Detector · วิชา 03603332 Operating Systems · หัวข้อจากบท Deadlocks
+</footer>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------- ตัวอย่างโค้ด */
+  var PRESETS = [
+    {
+      name: "bank — deadlock 2 thread (ตัวหลัก)",
+      code: String.raw`/* โอนเงินสองทิศทางพร้อมกัน ล็อกสลับลำดับกัน -> ค้างแน่นอน
+ * usleep คั่นไว้เพื่อบังคับให้ทั้งคู่คว้า lock ตัวแรกได้ก่อน
+ * แล้วไปชนกันที่ตัวที่สองพร้อมกัน จึงค้างทุกครั้ง ไม่ใช่สุ่ม
+ */
+#define _DEFAULT_SOURCE
+#include <pthread.h>
+#include <stdio.h>
+#include <unistd.h>
+
+typedef struct { long balance; pthread_mutex_t lock; } account_t;
+static account_t alice = { 1000, PTHREAD_MUTEX_INITIALIZER };
+static account_t bob   = { 1000, PTHREAD_MUTEX_INITIALIZER };
+
+static void *alice_to_bob(void *arg) {
+    (void)arg;
+    printf("[t1] lock alice\n"); fflush(stdout);
+    pthread_mutex_lock(&alice.lock);
+    usleep(100000);
+    printf("[t1] lock bob ...\n"); fflush(stdout);
+    pthread_mutex_lock(&bob.lock);
+    alice.balance -= 100; bob.balance += 100;
+    pthread_mutex_unlock(&bob.lock);
+    pthread_mutex_unlock(&alice.lock);
+    printf("[t1] done\n"); fflush(stdout);
+    return NULL;
+}
+
+static void *bob_to_alice(void *arg) {
+    (void)arg;
+    printf("[t2] lock bob\n"); fflush(stdout);
+    pthread_mutex_lock(&bob.lock);
+    usleep(100000);
+    printf("[t2] lock alice ...\n"); fflush(stdout);
+    pthread_mutex_lock(&alice.lock);
+    bob.balance -= 200; alice.balance += 200;
+    pthread_mutex_unlock(&alice.lock);
+    pthread_mutex_unlock(&bob.lock);
+    printf("[t2] done\n"); fflush(stdout);
+    return NULL;
+}
+
+int main(void) {
+    pthread_t t1, t2;
+    pthread_create(&t1, NULL, alice_to_bob, NULL);
+    pthread_create(&t2, NULL, bob_to_alice, NULL);
+    pthread_join(t1, NULL);
+    pthread_join(t2, NULL);
+    printf("alice=%ld bob=%ld\n", alice.balance, bob.balance);
+    return 0;
+}
+`
+    },
+    {
+      name: "cycle3 — deadlock 3 thread วนเป็นวง",
+      code: String.raw`/* T1 รอ T2 รอ T3 รอ T1 — พิสูจน์ว่า DFS จับ cycle ยาวกว่า 2 ได้ */
+#define _DEFAULT_SOURCE
+#include <pthread.h>
+#include <stdio.h>
+#include <unistd.h>
+
+static pthread_mutex_t a = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t b = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t c = PTHREAD_MUTEX_INITIALIZER;
+
+static void *t1(void *x) {
+    (void)x;
+    pthread_mutex_lock(&a);
+    usleep(150000);
+    printf("[t1] รอ b\n"); fflush(stdout);
+    pthread_mutex_lock(&b);
+    return NULL;
+}
+static void *t2(void *x) {
+    (void)x;
+    pthread_mutex_lock(&b);
+    usleep(150000);
+    printf("[t2] รอ c\n"); fflush(stdout);
+    pthread_mutex_lock(&c);
+    return NULL;
+}
+static void *t3(void *x) {
+    (void)x;
+    pthread_mutex_lock(&c);
+    usleep(150000);
+    printf("[t3] รอ a\n"); fflush(stdout);
+    pthread_mutex_lock(&a);
+    return NULL;
+}
+
+int main(void) {
+    pthread_t t[3];
+    pthread_create(&t[0], NULL, t1, NULL);
+    pthread_create(&t[1], NULL, t2, NULL);
+    pthread_create(&t[2], NULL, t3, NULL);
+    pthread_join(t[0], NULL);
+    pthread_join(t[1], NULL);
+    pthread_join(t[2], NULL);
+    return 0;
+}
+`
+    },
+    {
+      name: "self — ล็อกตัวเองซ้ำ (วงยาว 1)",
+      code: String.raw`/* thread เดียวล็อก mutex ตัวเดิมสองครั้ง
+ * mutex ธรรมดาไม่ใช่ชนิด recursive จึงค้างรอตัวเอง
+ */
+#include <pthread.h>
+#include <stdio.h>
+
+static pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
+
+int main(void) {
+    printf("ล็อกครั้งแรก\n"); fflush(stdout);
+    pthread_mutex_lock(&m);
+    printf("ล็อกครั้งที่สอง ... จะค้างตรงนี้\n"); fflush(stdout);
+    pthread_mutex_lock(&m);
+    printf("บรรทัดนี้จะไม่มีวันถูกพิมพ์\n");
+    return 0;
+}
+`
+    },
+    {
+      name: "ordered — เวอร์ชันที่แก้แล้ว (ต้องไม่มีรายงาน)",
+      code: String.raw`/* โค้ดเดียวกับ bank ทุกอย่าง หน่วงเวลาเท่ากันเป๊ะ
+ * ต่างแค่ล็อกตามลำดับสากลเสมอ (เรียงตามที่อยู่ของตัวแปร)
+ * -> ทำลายเงื่อนไข circular wait ของ Coffman = จบเองไม่ค้าง
+ */
+#define _DEFAULT_SOURCE
+#include <pthread.h>
+#include <stdio.h>
+#include <unistd.h>
+
+typedef struct { long balance; pthread_mutex_t lock; } account_t;
+static account_t alice = { 1000, PTHREAD_MUTEX_INITIALIZER };
+static account_t bob   = { 1000, PTHREAD_MUTEX_INITIALIZER };
+
+static void transfer(account_t *from, account_t *to, long amount) {
+    account_t *first  = (from < to) ? from : to;
+    account_t *second = (from < to) ? to   : from;
+    pthread_mutex_lock(&first->lock);
+    usleep(100000);
+    pthread_mutex_lock(&second->lock);
+    from->balance -= amount;
+    to->balance   += amount;
+    pthread_mutex_unlock(&second->lock);
+    pthread_mutex_unlock(&first->lock);
+}
+
+static void *t1(void *x) { (void)x; transfer(&alice, &bob, 100); printf("[t1] done\n"); fflush(stdout); return NULL; }
+static void *t2(void *x) { (void)x; transfer(&bob, &alice, 200); printf("[t2] done\n"); fflush(stdout); return NULL; }
+
+int main(void) {
+    pthread_t a, b;
+    pthread_create(&a, NULL, t1, NULL);
+    pthread_create(&b, NULL, t2, NULL);
+    pthread_join(a, NULL);
+    pthread_join(b, NULL);
+    printf("alice=%ld bob=%ld รวม=%ld\n", alice.balance, bob.balance,
+           alice.balance + bob.balance);
+    return 0;
+}
+`
+    },
+    {
+      name: "counter — 4 thread ล็อกรัว ๆ (เช็คว่าไม่เตือนมั่ว)",
+      code: String.raw`/* 4 thread ล็อก 2 mutex ตามลำดับเดียวกัน thread ละ 10000 รอบ
+ * ใช้ทดสอบสองอย่าง:
+ *   1. เครื่องมือต้องไม่รายงาน deadlock (ไม่มี false positive)
+ *   2. counter ต้องได้ 40000 เป๊ะ = mutual exclusion ยังทำงานถูกต้อง
+ */
+#include <pthread.h>
+#include <stdio.h>
+
+static pthread_mutex_t a = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t b = PTHREAD_MUTEX_INITIALIZER;
+static long counter = 0;
+
+static void *worker(void *x) {
+    (void)x;
+    for (int i = 0; i < 10000; i++) {
+        pthread_mutex_lock(&a);
+        pthread_mutex_lock(&b);
+        counter++;
+        pthread_mutex_unlock(&b);
+        pthread_mutex_unlock(&a);
+    }
+    return NULL;
+}
+
+int main(void) {
+    pthread_t t[4];
+    for (int i = 0; i < 4; i++) pthread_create(&t[i], NULL, worker, NULL);
+    for (int i = 0; i < 4; i++) pthread_join(t[i], NULL);
+    printf("counter=%ld (ต้องได้ 40000 เป๊ะ)\n", counter);
+    return 0;
+}
+`
+    }
+  ];
+
+  /* ---------------------------------------------------------- ตัวช่วยเล็ก ๆ */
+  var $ = function (id) { return document.getElementById(id); };
+
+  function esc(s) {
+    return String(s === null || s === undefined ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function shortMutex(addr) {
+    var s = String(addr || "");
+    return s.length > 10 ? "…" + s.slice(-8) : s;
+  }
+
+  /* ---------------------------------------------------------- วาด RAG */
+  function nodePos(i, total, cx, cy, r) {
+    var ang = -Math.PI / 2 + (i * 2 * Math.PI) / total;
+    return { x: cx + r * Math.cos(ang), y: cy + r * Math.sin(ang) };
+  }
+
+  function edgePath(a, b, ra, rb, curve) {
+    var dx = b.x - a.x, dy = b.y - a.y;
+    var len = Math.hypot(dx, dy) || 1;
+    var ux = dx / len, uy = dy / len;
+    var sx = a.x + ux * ra, sy = a.y + uy * ra;
+    var ex = b.x - ux * rb, ey = b.y - uy * rb;
+    var mx = (sx + ex) / 2, my = (sy + ey) / 2;
+    var cx = mx - uy * curve, cy = my + ux * curve;
+    return "M" + sx.toFixed(1) + "," + sy.toFixed(1) +
+           " Q" + cx.toFixed(1) + "," + cy.toFixed(1) +
+           " " + ex.toFixed(1) + "," + ey.toFixed(1);
+  }
+
+  function drawGraph(report) {
+    var n = report.threads.length;
+    if (n === 0) return "";
+
+    var W = 640, H = n >= 3 ? 420 : 360;
+    var cx = W / 2, cy = H / 2;
+    var R = n === 1 ? 92 : (n === 2 ? 122 : 148);
+    var total = n * 2;
+
+    var tPos = [], mPos = [];
+    for (var i = 0; i < n; i++) {
+      tPos.push(nodePos(i * 2, total, cx, cy, R));
+      mPos.push(nodePos(i * 2 + 1, total, cx, cy, R));
+    }
+
+    var curve = n === 1 ? 30 : 16;
+    var parts = [];
+
+    parts.push('<svg class="graph" viewBox="0 0 ' + W + ' ' + H +
+               '" xmlns="http://www.w3.org/2000/svg" role="img" ' +
+               'aria-label="resource allocation graph ของ deadlock ที่ตรวจพบ">');
+    parts.push(
+      '<defs>' +
+      '<marker id="arrRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
+      '<path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>' +
+      '<marker id="arrGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
+      '<path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>' +
+      '</defs>');
+
+    /* เส้นเชื่อม วาดก่อนเพื่อให้อยู่ใต้ node */
+    for (var k = 0; k < n; k++) {
+      var nxt = (k + 1) % n;
+      parts.push('<path d="' + edgePath(tPos[k], mPos[k], 50, 58, curve) +
+                 '" fill="none" stroke="var(--accent)" stroke-width="2" ' +
+                 'marker-end="url(#arrRed)"/>');
+      parts.push('<path d="' + edgePath(mPos[k], tPos[nxt], 58, 50, curve) +
+                 '" fill="none" stroke="var(--muted)" stroke-width="2" ' +
+                 'stroke-dasharray="5 4" marker-end="url(#arrGray)"/>');
+    }
+
+    /* node */
+    for (var j = 0; j < n; j++) {
+      var t = tPos[j], m = mPos[j];
+      parts.push('<ellipse cx="' + t.x.toFixed(1) + '" cy="' + t.y.toFixed(1) +
+                 '" rx="48" ry="25" fill="var(--card)" stroke="var(--accent)" stroke-width="2"/>');
+      parts.push('<text x="' + t.x.toFixed(1) + '" y="' + (t.y + 5).toFixed(1) +
+                 '" text-anchor="middle" font-family="JetBrains Mono, monospace" ' +
+                 'font-size="13" font-weight="600" fill="var(--ink)">T' +
+                 esc(report.threads[j].tid) + '</text>');
+
+      var waiting = report.threads[j].waiting || {};
+      parts.push('<rect x="' + (m.x - 56).toFixed(1) + '" y="' + (m.y - 22).toFixed(1) +
+                 '" width="112" height="44" rx="9" fill="var(--card)" ' +
+                 'stroke="var(--accent2)" stroke-width="2"/>');
+      parts.push('<text x="' + m.x.toFixed(1) + '" y="' + (m.y - 2).toFixed(1) +
+                 '" text-anchor="middle" font-family="JetBrains Mono, monospace" ' +
+                 'font-size="11" fill="var(--muted)">mutex</text>');
+      parts.push('<text x="' + m.x.toFixed(1) + '" y="' + (m.y + 13).toFixed(1) +
+                 '" text-anchor="middle" font-family="JetBrains Mono, monospace" ' +
+                 'font-size="12" font-weight="600" fill="var(--ink)">' +
+                 esc(shortMutex(waiting.mutex)) + '</text>');
+    }
+
+    parts.push('</svg>');
+    return parts.join("");
+  }
+
+  /* ---------------------------------------------------------- แสดงผล */
+  function renderReport(report) {
+    var rows = report.threads.map(function (t) {
+      var h = t.holds || {}, w = t.waiting || {};
+      return "<tr>" +
+        "<td class='mono'>T" + esc(t.tid) + "</td>" +
+        "<td class='mono'>" + esc(shortMutex(h.mutex)) + "</td>" +
+        "<td class='mono good'>" + esc(h.site || "-") + "</td>" +
+        "<td class='mono'>" + esc(shortMutex(w.mutex)) + "</td>" +
+        "<td class='mono bad'>" + esc(w.site || "-") + "</td>" +
+        "</tr>";
+    }).join("");
+
+    return '<div class="panel report">' +
+      '<h3>รายงานที่เครื่องมือพิมพ์ออกมา</h3>' +
+      '<p style="margin:0 0 10px"><strong class="bad">พบ deadlock</strong> — ' +
+      esc(report.count) + ' thread วนเป็นวง<br>' +
+      '<span class="mono">' + esc(report.cycle.join(" → ")) + '</span></p>' +
+      '<div class="tablewrap"><table>' +
+      '<tr><th>thread</th><th>ถือ</th><th>ล็อกไว้ที่</th><th>กำลังรอ</th><th>ค้างที่</th></tr>' +
+      rows + '</table></div>' +
+      drawGraph(report) +
+      '<div class="legend">' +
+      '<span><i class="swatch" style="background:var(--accent)"></i> กำลังขอ (request)</span>' +
+      '<span><i class="swatch" style="background:var(--muted)"></i> ถูกถืออยู่ (assignment)</span>' +
+      '<span>วงรี = thread · สี่เหลี่ยม = mutex</span>' +
+      '</div></div>';
+  }
+
+  function render(data, mode) {
+    var html = [];
+    var modeLabel = mode === "detect" ? "รันผ่านเครื่องมือ" : "รันแบบปกติ";
+
+    if (!data.compile_ok) {
+      html.push('<p><span class="badge err">compile ไม่ผ่าน</span></p>');
+      html.push('<div class="panel"><h3>gcc บอกว่า</h3><pre><code>' +
+                esc(data.compile_output || "(ไม่มีรายละเอียด)") + '</code></pre></div>');
+      return html.join("");
+    }
+
+    if (data.timed_out) {
+      html.push('<p><span class="badge hang">ค้าง</span> ' +
+                esc(modeLabel) + ' · ถูกตัดที่ ' + esc(data.timeout) + ' วินาที</p>');
+    } else {
+      html.push('<p><span class="badge ok">จบเอง</span> ' +
+                esc(modeLabel) + ' · exit code ' + esc(data.exit) + '</p>');
+    }
+
+    if (data.compile_output) {
+      html.push('<details><summary>gcc มี warning</summary><pre><code>' +
+                esc(data.compile_output) + '</code></pre></details>');
+    }
+
+    html.push('<div class="panel"><h3>output ของโปรแกรม (stdout)</h3><pre><code>' +
+              esc(data.stdout || "(ไม่มี output)") + '</code></pre></div>');
+
+    if (data.report) {
+      html.push(renderReport(data.report));
+    } else if (mode === "detect") {
+      if (data.timed_out) {
+        html.push('<div class="panel"><h3>เครื่องมือว่าอย่างไร</h3>' +
+          '<p style="margin:0"><span class="warn">โปรแกรมค้างแต่ไม่เจอ cycle</span> — ' +
+          'อาจค้างด้วยสาเหตุอื่นที่ไม่ใช่ deadlock ของ mutex ' +
+          '(เช่น รอ I/O, วนลูปไม่รู้จบ, หรือใช้ semaphore ซึ่งยังไม่รองรับ)</p></div>');
+      } else {
+        html.push('<div class="panel"><h3>เครื่องมือว่าอย่างไร</h3>' +
+          '<p style="margin:0"><span class="good">ไม่พบ deadlock</span> — ' +
+          'โปรแกรมจบเองตามปกติ และเครื่องมือไม่ได้เตือนอะไร</p></div>');
+      }
+    } else if (data.timed_out) {
+      html.push('<div class="panel"><h3>สังเกต</h3>' +
+        '<p style="margin:0">โปรแกรมค้างจนถูกตัด และ<strong>ไม่มีอะไรบอกเลย</strong>ว่าเกิดอะไรขึ้น ' +
+        'ไม่ crash ไม่มี error — นี่คือทั้งหมดที่ deadlock บอกเรา<br>' +
+        'ลองกด <strong>รันผ่านเครื่องมือ</strong> ด้วยโค้ดเดิมดู</p></div>');
+    }
+
+    if (data.stderr) {
+      html.push('<details><summary>stderr ดิบทั้งหมด</summary><pre><code>' +
+                esc(data.stderr) + '</code></pre></details>');
+    }
+    if (data.dot) {
+      html.push('<details><summary>ไฟล์ Graphviz (.dot) ที่เครื่องมือเขียนออกมา</summary><pre><code>' +
+                esc(data.dot) + '</code></pre>' +
+                '<p class="hint">แปลงเป็นรูปด้วย <code>dot -Tpng cycle.dot -o cycle.png</code></p></details>');
+    }
+    return html.join("");
+  }
+
+  /* ---------------------------------------------------------- ต่อสาย */
+  var sel = $("preset");
+  PRESETS.forEach(function (p, i) {
+    var o = document.createElement("option");
+    o.value = String(i);
+    o.textContent = p.name;
+    sel.appendChild(o);
+  });
+  $("code").value = PRESETS[0].code;
+  sel.addEventListener("change", function () {
+    $("code").value = PRESETS[Number(sel.value)].code;
+  });
+
+  var busy = false;
+
+  function setBusy(on, msg) {
+    busy = on;
+    $("runPlain").disabled = on;
+    $("runDetect").disabled = on;
+    $("status").textContent = msg || "";
+  }
+
+  function run(mode) {
+    if (busy) return;
+    var code = $("code").value;
+    if (!code.trim()) { $("status").textContent = "ยังไม่ได้ใส่โค้ด"; return; }
+    var timeout = Number($("timeout").value);
+
+    setBusy(true, mode === "detect"
+      ? "กำลัง compile แล้วรันผ่านเครื่องมือ ..."
+      : "กำลัง compile แล้วรัน ...");
+    $("resultSection").style.display = "";
+
+    fetch("/api/run", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: code, mode: mode, timeout: timeout })
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) {
+          $("result").innerHTML = '<p><span class="badge err">ผิดพลาด</span> ' + esc(data.error) + '</p>';
+        } else {
+          $("result").innerHTML = render(data, mode);
+        }
+        setBusy(false, "");
+        $("resultSection").scrollIntoView({ behavior: "smooth", block: "start" });
+      })
+      .catch(function (err) {
+        $("result").innerHTML = '<p><span class="badge err">ติดต่อเซิร์ฟเวอร์ไม่ได้</span> ' +
+          esc(err && err.message ? err.message : err) +
+          '<br>เซิร์ฟเวอร์ยังรันอยู่หรือเปล่า — สั่ง <code>make playground</code> ใน WSL</p>';
+        setBusy(false, "");
+      });
+  }
+
+  $("runPlain").addEventListener("click", function () { run("plain"); });
+  $("runDetect").addEventListener("click", function () { run("detect"); });
+
+  if (location.protocol === "file:") {
+    $("offlineNotice").style.display = "";
+    $("runPlain").disabled = true;
+    $("runDetect").disabled = true;
+    $("status").textContent = "ต้องเปิดผ่านเซิร์ฟเวอร์ถึงจะรันได้";
+  }
+})();
+</script>
+</body>
+</html>

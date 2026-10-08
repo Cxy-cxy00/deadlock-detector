@@ -12,7 +12,7 @@ OBJ      := $(patsubst src/%.c,$(BUILD)/%.o,$(SRC))
 LIB      := $(BUILD)/libdetect.so
 TESTS    := $(BUILD)/bank $(BUILD)/no_deadlock
 
-.PHONY: all tests clean demo
+.PHONY: all tests clean demo playground
 all: $(LIB) tests
 
 $(LIB): $(OBJ)
@@ -32,6 +32,11 @@ $(BUILD):
 
 demo: all
 	./tests/run_demo.sh
+
+# หน้าเว็บที่กดรันโค้ดได้จริง — เปิด http://127.0.0.1:8000
+# เซิร์ฟเวอร์นี้ compile และรันโค้ดที่ส่งมาจากหน้าเว็บ ใช้เฉพาะบนเครื่องตัวเอง
+playground: all
+	python3 tools/playground.py
 
 clean:
 	rm -rf $(BUILD) *.dot *.png
