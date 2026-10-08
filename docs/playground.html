@@ -153,20 +153,153 @@ footer{color:var(--muted); font-size:13px; text-align:center; margin-top:28px}
 .cline.waiting .tagline{background:var(--accent); color:#fff}
 .codekey{display:flex; flex-wrap:wrap; gap:14px; font-size:13px; color:var(--muted); margin-top:4px}
 .codekey i{display:inline-block; width:13px; height:13px; border-radius:4px; vertical-align:-2px; margin-right:5px}
+
+/* ================= hero ================= */
+.hero{
+  position:relative; overflow:hidden; margin-bottom:22px;
+  background:linear-gradient(135deg,#19212c 0%,#121820 52%,#251a1d 100%);
+  border:1px solid #2a323d; border-radius:18px; padding:34px 28px; color:#eef1f6;
+}
+.hero::before{
+  content:""; position:absolute; top:-45%; right:-8%; width:430px; height:430px;
+  border-radius:50%; pointer-events:none;
+  background:radial-gradient(circle, rgba(214,69,69,.30), transparent 62%);
+}
+.hero::after{
+  content:""; position:absolute; bottom:-55%; left:-10%; width:420px; height:420px;
+  border-radius:50%; pointer-events:none;
+  background:radial-gradient(circle, rgba(47,111,208,.26), transparent 62%);
+}
+.hero-in{position:relative; z-index:1; display:grid;
+  grid-template-columns:minmax(0,1fr) 270px; gap:26px; align-items:center}
+.hero .kicker{color:#93a0b1}
+.hero h1{font-size:clamp(30px,6vw,46px); margin:8px 0 12px; color:#fff; letter-spacing:-.01em}
+.hero .sub{color:#aab5c4; font-size:16px}
+.hero .nav{margin-top:18px}
+.hero .nav a{background:rgba(255,255,255,.07); border-color:rgba(255,255,255,.15); color:#c3ccd9}
+.hero .nav a:hover{color:#fff; border-color:rgba(255,255,255,.42)}
+.hero .nav a.here{background:var(--accent2); border-color:var(--accent2); color:#fff}
+.hero-art{width:100%; height:auto}
+@media (max-width:760px){
+  .hero{padding:26px 20px}
+  .hero-in{grid-template-columns:1fr}
+  .hero-art{display:none}
+}
+
+/* ---- ลูกศรในรูป hero วิ่งวนให้เห็นว่าวงมันปิดยังไง ---- */
+@keyframes edgeRun{
+  0%   {stroke-dashoffset:210; opacity:.25}
+  16%  {stroke-dashoffset:0;   opacity:1}
+  68%  {stroke-dashoffset:0;   opacity:1}
+  84%  {stroke-dashoffset:0;   opacity:.12}
+  100% {stroke-dashoffset:210; opacity:.25}
+}
+.hero-art .edge{stroke-dasharray:210; stroke-dashoffset:210;
+  animation:edgeRun 4.4s ease-in-out infinite}
+.hero-art .e2{animation-delay:.38s}
+.hero-art .e3{animation-delay:.76s}
+.hero-art .e4{animation-delay:1.14s}
+@keyframes nodeGlow{0%,100%{opacity:.5} 50%{opacity:1}}
+.hero-art .halo{animation:nodeGlow 4.4s ease-in-out infinite}
+
+/* ---- ผลลัพธ์โผล่มาแบบมีจังหวะ ---- */
+@keyframes riseIn{from{opacity:0; transform:translateY(10px)} to{opacity:1; transform:none}}
+#result > *{animation:riseIn .45s ease both}
+#result > *:nth-child(2){animation-delay:.06s}
+#result > *:nth-child(3){animation-delay:.12s}
+#result > *:nth-child(4){animation-delay:.18s}
+#result > *:nth-child(5){animation-delay:.24s}
+
+/* ---- ลูกศรในกราฟผลลัพธ์ค่อย ๆ ลากจนวงปิด ---- */
+@keyframes drawIn{from{stroke-dashoffset:620} to{stroke-dashoffset:0}}
+svg.graph path[marker-end]{stroke-dasharray:620; stroke-dashoffset:620;
+  animation:drawIn .75s ease forwards}
+
+/* ---- ป้ายเตือนตอนเจอ deadlock เต้นเบา ๆ ---- */
+@keyframes badgePulse{
+  0%,100%{box-shadow:0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent)}
+  60%{box-shadow:0 0 0 11px transparent}
+}
+.badge.hang{animation:badgePulse 1.9s ease-out infinite}
+
+/* ปุ่มรันให้เด่นขึ้น */
+button.primary{padding:11px 22px; font-size:15px;
+  box-shadow:0 2px 14px color-mix(in srgb, var(--accent2) 42%, transparent)}
+button.primary:hover:not(:disabled){filter:brightness(1.08)}
+
+@media (prefers-reduced-motion: reduce){
+  .hero-art .edge,.hero-art .halo,#result > *,svg.graph path[marker-end],.badge.hang{
+    animation:none; stroke-dashoffset:0; opacity:1}
+}
 </style>
 </head>
 <body>
 <div class="wrap">
 
-<header>
-  <div class="kicker">03603332 Operating Systems · Group Project</div>
-  <h1>Deadlock Detector</h1>
-  <p class="sub">แนบไฟล์ C ที่สงสัยว่าค้าง แล้วกดรัน — เครื่องมือจะบอกว่า thread ไหนค้างกับใคร ที่บรรทัดไหน โดยไม่ต้องแก้โค้ดของโปรแกรมนั้นเลย</p>
-  <nav class="nav">
-    <a class="here" href="playground.html">Deadlock Detector</a>
-    <a href="overview.html">ภาพรวมโปรเจ็ค</a>
-    <a href="banker.html">Banker's Algorithm</a>
-  </nav>
+<header class="hero">
+  <div class="hero-in">
+    <div>
+      <div class="kicker">03603332 Operating Systems · Group Project</div>
+      <h1>Deadlock Detector</h1>
+      <p class="sub">แนบไฟล์ C ที่สงสัยว่าค้าง แล้วกดรัน — เครื่องมือจะบอกว่า thread ไหนค้างกับใคร
+        ที่บรรทัดไหน โดยไม่ต้องแก้โค้ดของโปรแกรมนั้นเลยสักบรรทัด</p>
+      <nav class="nav">
+        <a class="here" href="playground.html">Deadlock Detector</a>
+        <a href="overview.html">ภาพรวมโปรเจ็ค</a>
+        <a href="banker.html">Banker's Algorithm</a>
+      </nav>
+    </div>
+
+    <!-- วงจรของ deadlock วิ่งวนให้เห็นว่าทำไมมันถึงไม่มีทางหลุด -->
+    <svg class="hero-art" viewBox="0 0 270 210" xmlns="http://www.w3.org/2000/svg"
+         role="img" aria-label="วงจร deadlock ระหว่างสอง thread กับสอง mutex">
+      <defs>
+        <marker id="hRed" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#ff6b6b"/>
+        </marker>
+        <marker id="hGray" viewBox="0 0 10 10" refX="9" refY="5"
+                markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#8792a3"/>
+        </marker>
+      </defs>
+
+      <circle class="halo" cx="54" cy="46" r="31" fill="rgba(255,107,107,.13)"/>
+      <circle class="halo" cx="216" cy="164" r="31" fill="rgba(255,107,107,.13)"
+              style="animation-delay:.76s"/>
+
+      <!-- T1 -> B (กำลังขอ) -->
+      <path class="edge e1" d="M78,46 L186,46" stroke="#ff6b6b" stroke-width="2.4"
+            fill="none" marker-end="url(#hRed)"/>
+      <!-- B -> T2 (ถูกถืออยู่) -->
+      <path class="edge e2" d="M216,66 L216,136" stroke="#8792a3" stroke-width="2.4"
+            fill="none" stroke-dasharray="210" marker-end="url(#hGray)"/>
+      <!-- T2 -> A (กำลังขอ) -->
+      <path class="edge e3" d="M192,164 L84,164" stroke="#ff6b6b" stroke-width="2.4"
+            fill="none" marker-end="url(#hRed)"/>
+      <!-- A -> T1 (ถูกถืออยู่) -->
+      <path class="edge e4" d="M54,144 L54,74" stroke="#8792a3" stroke-width="2.4"
+            fill="none" marker-end="url(#hGray)"/>
+
+      <circle cx="54" cy="46" r="23" fill="#1b2430" stroke="#ff6b6b" stroke-width="2.2"/>
+      <text x="54" y="51" text-anchor="middle" font-family="JetBrains Mono, monospace"
+            font-size="14" font-weight="700" fill="#fff">T1</text>
+
+      <circle cx="216" cy="164" r="23" fill="#1b2430" stroke="#ff6b6b" stroke-width="2.2"/>
+      <text x="216" y="169" text-anchor="middle" font-family="JetBrains Mono, monospace"
+            font-size="14" font-weight="700" fill="#fff">T2</text>
+
+      <rect x="192" y="28" width="48" height="36" rx="9" fill="#1b2430"
+            stroke="#6aa6ff" stroke-width="2.2"/>
+      <text x="216" y="51" text-anchor="middle" font-family="JetBrains Mono, monospace"
+            font-size="14" font-weight="700" fill="#fff">B</text>
+
+      <rect x="30" y="146" width="48" height="36" rx="9" fill="#1b2430"
+            stroke="#6aa6ff" stroke-width="2.2"/>
+      <text x="54" y="169" text-anchor="middle" font-family="JetBrains Mono, monospace"
+            font-size="14" font-weight="700" fill="#fff">A</text>
+    </svg>
+  </div>
 </header>
 
 <div class="statusbar" id="statusbar">
@@ -515,15 +648,18 @@ int main(void) {
       '<path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>' +
       '</defs>');
 
-    /* เส้นเชื่อม วาดก่อนเพื่อให้อยู่ใต้ node */
+    /* เส้นเชื่อม วาดก่อนเพื่อให้อยู่ใต้ node
+       ไล่ delay ทีละเส้นเพื่อให้เห็นว่าวงมันค่อย ๆ ปิดจนครบรอบ */
     for (var k = 0; k < n; k++) {
       var nxt = (k + 1) % n;
+      var d1 = (k * 2 * 0.22).toFixed(2);
+      var d2 = ((k * 2 + 1) * 0.22).toFixed(2);
       parts.push('<path d="' + edgePath(tPos[k], mPos[k], 50, 58, curve) +
                  '" fill="none" stroke="var(--accent)" stroke-width="2" ' +
-                 'marker-end="url(#arrRed)"/>');
+                 'style="animation-delay:' + d1 + 's" marker-end="url(#arrRed)"/>');
       parts.push('<path d="' + edgePath(mPos[k], tPos[nxt], 58, 50, curve) +
                  '" fill="none" stroke="var(--muted)" stroke-width="2" ' +
-                 'stroke-dasharray="5 4" marker-end="url(#arrGray)"/>');
+                 'style="animation-delay:' + d2 + 's" marker-end="url(#arrGray)"/>');
     }
 
     /* node */
@@ -820,6 +956,40 @@ int main(void) {
     $("runDetect").disabled = on;
   }
 
+  /* ตัวเลขสรุปนับขึ้นจาก 0 ให้สายตาจับได้ว่ามีอะไรเปลี่ยน
+   *
+   * สำคัญ: ห้ามเซ็ตเป็น 0 ไว้ล่วงหน้าแล้วรอ requestAnimationFrame มาไล่ขึ้น
+   * เพราะถ้าแท็บถูกซ่อนหรือ browser throttle ไว้ callback จะไม่ถูกเรียกเลย
+   * แล้วตัวเลขจะค้างที่ 0 ถาวร  จึงเริ่มนับใน frame แรกแทน
+   * ถ้า rAF ไม่ทำงานเลย ค่าจริงก็ยังอยู่ครบไม่ถูกแตะ
+   */
+  function countUpTiles() {
+    var reduce = window.matchMedia &&
+                 window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) return;
+
+    document.querySelectorAll("#result .tile .n").forEach(function (el) {
+      var finalText = el.textContent.trim();
+      var numeric = finalText.length > 0 && finalText.split("").every(function (c) {
+        return c >= "0" && c <= "9";
+      });
+      if (!numeric) return;                 /* เช่นช่อง "3s" ปล่อยไว้เฉย ๆ */
+
+      var target = parseInt(finalText, 10);
+      if (!target || target > 999) return;
+
+      var t0 = null;
+      function step(ts) {
+        if (t0 === null) t0 = ts;
+        var p = Math.min(1, (ts - t0) / 600);
+        if (p >= 1) { el.textContent = finalText; return; }
+        el.textContent = String(Math.round(target * (1 - Math.pow(1 - p, 3))));
+        requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    });
+  }
+
   function scrollCodeToFirstMark() {
     var cv = document.getElementById("codeview");
     if (!cv) return;
@@ -857,6 +1027,7 @@ int main(void) {
           $("result").innerHTML = '<p><span class="badge err">ผิดพลาด</span> ' + esc(data.error) + '</p>';
         } else {
           $("result").innerHTML = render(data, mode, code);
+          countUpTiles();
           scrollCodeToFirstMark();
         }
         $("resultSection").scrollIntoView({ behavior: "smooth", block: "start" });
