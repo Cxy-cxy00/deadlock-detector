@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Deadlock Detector — ลองรันจริง</title>
+<title>Deadlock Detector — เครื่องมือตรวจจับ deadlock</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -118,18 +118,18 @@ footer{color:var(--muted); font-size:13px; text-align:center; margin-top:28px}
 
 <header>
   <div class="kicker">03603332 Operating Systems · Group Project</div>
-  <h1>ลองรันเครื่องมือจริง</h1>
-  <p class="sub">วางโค้ด C ที่มี deadlock ลงไป แล้วดูว่าเครื่องมือจับได้อย่างไร — รันของจริงบนเครื่องนี้</p>
+  <h1>Deadlock Detector</h1>
+  <p class="sub">แนบไฟล์ C ที่สงสัยว่าค้าง แล้วกดรัน — เครื่องมือจะบอกว่า thread ไหนค้างกับใคร ที่บรรทัดไหน โดยไม่ต้องแก้โค้ดของโปรแกรมนั้นเลย</p>
   <nav class="nav">
+    <a class="here" href="playground.html">Deadlock Detector</a>
     <a href="overview.html">ภาพรวมโปรเจ็ค</a>
     <a href="banker.html">Banker's Algorithm</a>
-    <a class="here" href="playground.html">ลองรันจริง</a>
   </nav>
 </header>
 
 <div id="offlineNotice" class="notice" style="display:none">
   <strong>หน้านี้เปิดจากไฟล์โดยตรง จึงรันโค้ดไม่ได้</strong><br>
-  ส่วนอธิบายด้านล่างอ่านได้ตามปกติ แต่ถ้าอยากกดรันจริง ให้เปิดผ่านเซิร์ฟเวอร์ใน WSL:
+  ต้องเปิดผ่านเซิร์ฟเวอร์ใน WSL:
   <pre style="margin-top:10px"><code>cd /mnt/d/Project_OS/deadlock-detector
 make playground</code></pre>
   แล้วเปิด <code>http://127.0.0.1:8000</code>
@@ -137,56 +137,7 @@ make playground</code></pre>
 
 <!-- ============================================================ 1 -->
 <section>
-  <h2><span class="num">1</span> ปัญหาที่เครื่องมือนี้แก้</h2>
-  <p class="lead">deadlock เป็นบั๊กที่ไม่ยอมบอกอะไรเลย</p>
-  <p>
-    โปรแกรมหลาย thread ที่ล็อก mutex สลับลำดับกันจะค้างทั้งโปรแกรม
-    อาการที่เห็นคือ <strong>เงียบไปเฉย ๆ</strong> ไม่ crash ไม่มี error ไม่มี stack trace
-    CPU เป็น 0% แล้วต้องเดาเองว่าค้างตรงไหน
-  </p>
-<pre><code>Thread 1 (โอน A → B)          Thread 2 (โอน B → A)
-  lock(mutex A)  สำเร็จ          lock(mutex B)  สำเร็จ
-  lock(mutex B)  ← รอ            lock(mutex A)  ← รอ</code></pre>
-  <p>ต่างคนต่างถือของที่อีกฝ่ายต้องการ ไม่มีใครยอมปล่อย</p>
-</section>
-
-<!-- ============================================================ 2 -->
-<section>
-  <h2><span class="num">2</span> เครื่องมือแทรกตัวอยู่ตรงไหน</h2>
-  <p class="lead">ไม่ต้องแก้โค้ดโปรแกรมเป้าหมาย ไม่ต้อง compile ใหม่</p>
-<pre><code>โปรแกรมเป้าหมาย        pthread_mutex_lock(&amp;A)
-        │
-        ▼
-libdetect.so  ← โปรเจ็คนี้   1. จดว่า "T1 กำลังจะรอ A"
-                            2. เรียกตัวจริง   ← ค้างตรงนี้ตอนเกิด deadlock
-                            3. จดว่า "T1 ได้ A แล้ว"
-        │
-        ▼
-libc.so.6                  ตัวจริงที่ทำการล็อก</code></pre>
-  <p>
-    <code>LD_PRELOAD</code> สั่งให้ dynamic linker โหลด library ของเราไว้หน้าสุด
-    ฟังก์ชันชื่อซ้ำของเราจึงถูกเรียกแทน และเรายังเรียกตัวจริงต่อได้ผ่าน
-    <code>dlsym(RTLD_NEXT, ...)</code>
-  </p>
-</section>
-
-<!-- ============================================================ 3 -->
-<section>
-  <h2><span class="num">3</span> ตรวจเจอได้อย่างไร</h2>
-  <p class="lead">สร้าง wait-for graph แล้วหา cycle ด้วย DFS</p>
-  <p>
-    node คือ thread · edge <code>T1 → T2</code> แปลว่า "T1 รอ mutex ที่ T2 ถืออยู่"
-    <strong>มี cycle = เกิด deadlock แล้ว</strong>
-  </p>
-  <p>
-    thread ของโปรแกรมเป้าหมายค้างกันหมดแล้วก็จริง แต่ detector เป็น thread ของ
-    library เราเอง จึงยังทำงานและรายงานออกมาได้ — ตรวจทุก 500 มิลลิวินาที
-  </p>
-</section>
-
-<!-- ============================================================ 4 -->
-<section>
-  <h2><span class="num">4</span> ลองเอง</h2>
+  <h2><span class="num">1</span> แนบไฟล์หรือวางโค้ด</h2>
   <p class="lead">เลือกตัวอย่าง หรือวางโค้ด C ของคุณเองลงไปก็ได้</p>
 
   <div class="controls">
@@ -214,19 +165,21 @@ libc.so.6                  ตัวจริงที่ทำการล็�
   </div>
   <p class="hint">
     โค้ดถูก compile ด้วย <code>gcc -std=c11 -Wall -Wextra -g -O0 -pthread</code>
-    แล้วรันในโฟลเดอร์ชั่วคราว เสร็จแล้วลบทิ้งอัตโนมัติ
+    แล้วรันในโฟลเดอร์ชั่วคราว เสร็จแล้วลบทิ้งอัตโนมัติ<br>
+    อยากรู้ว่าเครื่องมือดักฟังก์ชันและหา cycle ได้ยังไง ดูที่
+    <a href="overview.html">ภาพรวมโปรเจ็ค</a>
   </p>
 </section>
 
-<!-- ============================================================ 5 -->
+<!-- ============================================================ 2 -->
 <section id="resultSection" style="display:none">
-  <h2><span class="num">5</span> ผลลัพธ์</h2>
+  <h2><span class="num">2</span> ผลลัพธ์</h2>
   <div id="result"></div>
 </section>
 
-<!-- ============================================================ 6 -->
+<!-- ============================================================ 3 -->
 <section>
-  <h2><span class="num">6</span> ข้อจำกัดที่รู้อยู่</h2>
+  <h2><span class="num">3</span> ข้อจำกัดที่รู้อยู่</h2>
   <div class="tablewrap">
   <table>
     <tr><th>เรื่อง</th><th>รายละเอียด</th></tr>

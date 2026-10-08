@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Deadlock Detector — ภาพรวมโปรเจ็ค (Copy)</title>
+<title>Deadlock Detector — ภาพรวมโปรเจ็ค</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
@@ -42,6 +42,11 @@ h1{font-size:clamp(26px,5vw,38px); line-height:1.25; margin:6px 0 10px; font-wei
 .sub{color:var(--muted); font-size:16px; margin:0}
 .tags{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px}
 .tag{background:var(--chip); border:1px solid var(--line); border-radius:999px; padding:4px 12px; font-size:13px; color:var(--muted)}
+.nav{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px}
+.nav a{background:var(--chip); border:1px solid var(--line); border-radius:999px;
+  padding:5px 13px; font-size:13px; color:var(--muted); text-decoration:none}
+.nav a:hover{color:var(--ink); border-color:var(--accent2)}
+.nav a.here{background:var(--accent2); border-color:var(--accent2); color:#fff; font-weight:600}
 section{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px; margin-bottom:20px}
 h2{font-size:19px; margin:0 0 4px; font-weight:600; display:flex; align-items:center; gap:10px}
 .num{background:var(--accent2); color:#fff; width:26px; height:26px; border-radius:8px;
@@ -87,6 +92,11 @@ footer{color:var(--muted); font-size:13px; text-align:center; margin-top:28px}
     <span class="tag">LD_PRELOAD</span><span class="tag">pthread</span>
     <span class="tag">บท Deadlocks</span><span class="tag">ความยาก 3.5 / 5</span>
   </div>
+  <nav class="nav">
+    <a href="playground.html">Deadlock Detector</a>
+    <a class="here" href="overview.html">ภาพรวมโปรเจ็ค</a>
+    <a href="banker.html">Banker's Algorithm</a>
+  </nav>
 </header>
 
 <section>

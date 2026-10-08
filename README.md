@@ -121,7 +121,7 @@ tests/
 docs/
   overview.html    สไลด์/หน้าสรุปโปรเจ็ค (เปิดในเบราว์เซอร์)
   banker.html      ซิมูเลเตอร์ Banker's Algorithm — deadlock avoidance
-  playground.html  หน้าเว็บที่วางโค้ด C แล้วกดรันผ่านเครื่องมือได้จริง
+  playground.html  หน้าเครื่องมือ — แนบไฟล์ C หรือวางโค้ดแล้วกดรันได้จริง
   design.md        บันทึกการออกแบบและข้อจำกัด
 tools/
   playground.py    เซิร์ฟเวอร์ท้องถิ่นที่ compile + รันโค้ดให้หน้า playground
