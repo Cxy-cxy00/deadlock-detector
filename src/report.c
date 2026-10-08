@@ -8,6 +8,9 @@
 #include <dlfcn.h>    /* dladdr */
 #include <stdio.h>    /* snprintf, popen */
 #include <stdlib.h>   /* atoi */
+#include <stdarg.h>   /* va_list ของ dot_emit */
+#include <fcntl.h>    /* open */
+#include <unistd.h>   /* write, close */
 #include "report.h"
 #include "state.h"
 
@@ -197,9 +200,87 @@ void dd_report_cycle(const dd_cycle_t *c) {
     dd_logf("  Hint : acquire locks in a consistent global order\n\n");
 }
 
+
+/* ---- export เป็น Graphviz ----
+ * วาดแบบ resource allocation graph ตามตำรา:
+ *   วงรี = thread,  สี่เหลี่ยม = mutex
+ *   T -> M  คือ "กำลังขอ"        (request edge)
+ *   M -> T  คือ "ถูกถืออยู่โดย"  (assignment edge)
+ * ลูกศรจะวนครบรอบพอดี ได้ภาพ deadlock แบบเดียวกับในสไลด์เรียน
+ *
+ * ใช้ open/write แทน fopen/fprintf เพื่อไม่ให้มี malloc เข้ามาเกี่ยวเลย
+ * (fopen เรียก malloc ซึ่งเสี่ยงถ้าเป้าหมายค้างคา lock ของ malloc อยู่พอดี)
+ */
+
+/* ตัวอัญประกาศคู่ เขียนเป็นรหัส ASCII แล้วยัดผ่าน %c
+ * จะได้ไม่ต้องมี backslash เกลื่อน format string จนอ่านไม่ออก
+ */
+#define DQ 34
+
+/* หนึ่งครั้งที่เรียก = หนึ่งบรรทัดในไฟล์ (ต่อท้ายขึ้นบรรทัดใหม่ให้เอง) */
+static void dot_emit(int fd, const char *fmt, ...)
+    __attribute__((format(printf, 2, 3)));
+
+static void dot_emit(int fd, const char *fmt, ...) {
+    char    buf[512];
+    va_list ap;
+    int     n;
+
+    va_start(ap, fmt);
+    n = vsnprintf(buf, sizeof buf - 1, fmt, ap);
+    va_end(ap);
+    if (n < 0) return;
+    if (n > (int)sizeof buf - 2) n = (int)sizeof buf - 2;
+    buf[n] = 10;
+    if (write(fd, buf, (size_t)n + 1) < 0) return;   /* เขียนไม่ได้ก็ยอม */
+}
+
+/* บรรทัดว่างคั่น — แยกออกมาเพราะ dot_emit(fd, "") จะโดน -Wformat-zero-length */
+static void dot_blank(int fd) {
+    const char nl = 10;
+    if (write(fd, &nl, 1) < 0) return;
+}
+
 void dd_report_dot(const dd_cycle_t *c, const char *path) {
-    (void)c; (void)path;
-    /* TODO ขั้น 10: เขียน digraph ออกไฟล์ .dot
-     * path == NULL -> อ่านจาก env DD_DOT_OUT  ถ้าไม่ได้ตั้งไว้ก็ไม่ต้องทำอะไร
-     */
+    int    fd;
+    size_t i;
+
+    if (c == NULL || c->len == 0) return;
+    if (path == NULL) path = getenv("DD_DOT_OUT");
+    if (path == NULL || *path == 0) return;    /* ไม่ได้สั่งให้เขียน ก็ไม่ต้องทำ */
+
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (fd < 0) {
+        dd_logf("[dd] WARNING: เขียนไฟล์ %s ไม่ได้\n", path);
+        return;
+    }
+
+    dot_emit(fd, "digraph deadlock {");
+    dot_emit(fd, "  rankdir=LR;");
+    dot_emit(fd, "  labelloc=t;");
+    dot_emit(fd, "  label=%cDEADLOCK: %zu threads in cycle%c;", DQ, c->len, DQ);
+    dot_emit(fd, "  node [fontname=monospace];");
+    dot_emit(fd, "  edge [fontname=monospace, fontsize=10];");
+    dot_blank(fd);
+
+    for (i = 0; i < c->len; i++) {
+        dot_emit(fd, "  T%zu [shape=ellipse, style=filled, fillcolor=mistyrose,"
+                     " label=%cThread %lu%c];", i, DQ, c->tids[i], DQ);
+        dot_emit(fd, "  M%zu [shape=box, style=filled, fillcolor=lightblue,"
+                     " label=%cmutex %p%c];", i, DQ, c->mutexes[i], DQ);
+    }
+    dot_blank(fd);
+
+    for (i = 0; i < c->len; i++) {
+        /* tids[i] กำลังขอ mutexes[i] */
+        dot_emit(fd, "  T%zu -> M%zu [color=red, label=waiting];", i, i);
+        /* mutexes[i] ถือโดย tids[i+1] — เส้นนี้คือตัวปิดวงให้ครบรอบ */
+        dot_emit(fd, "  M%zu -> T%zu [label=%cheld by%c];",
+                 i, (i + 1) % c->len, DQ, DQ);
+    }
+
+    dot_emit(fd, "}");
+    close(fd);
+
+    dd_logf("  Graph : เขียน %s แล้ว   (dot -Tpng %s -o cycle.png)\n", path, path);
 }
