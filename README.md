@@ -26,18 +26,18 @@ Thread 1 (โอน A → B)        Thread 2 (โอน B → A)
 $ ./bank                                 # ค้าง ไม่มีอะไรบอก
 ^C
 
-$ LD_PRELOAD=./build/libdetect.so ./bank
+$ LD_PRELOAD=./build/libdetect.so ./build/bank
 
 [DEADLOCK DETECTED] 2 threads in cycle
 
-  Thread 140234
-      holds   mutex 0x5591a0   at bank.c:42
-      waiting mutex 0x5591c0   at bank.c:47
-  Thread 140235
-      holds   mutex 0x5591c0   at bank.c:63
-      waiting mutex 0x5591a0   at bank.c:68
+  Thread 17356
+      holds   mutex 0x5a8b5c70c030   at bank.c:46
+      waiting mutex 0x5a8b5c70c070   at bank.c:51
+  Thread 17357
+      holds   mutex 0x5a8b5c70c070   at bank.c:70
+      waiting mutex 0x5a8b5c70c030   at bank.c:75
 
-  Cycle: T140234 -> T140235 -> T140234
+  Cycle: T17356 -> T17357 -> T17356
   Hint : acquire locks in a consistent global order
 ```
 
@@ -86,8 +86,20 @@ T1 กับ T2 ค้างอยู่ทั้งคู่ แต่ detector
 
 ## สถานะปัจจุบัน
 
-🚧 **โครงไฟล์เท่านั้น — ยังไม่ได้ implement** ทุกฟังก์ชันเป็น stub ที่มีคอมเมนต์ `TODO` บอกว่าต้องทำอะไร
-`make` ยังไม่รับประกันว่าผ่าน จนกว่าจะเริ่มเติมโค้ด
+✅ **ใช้งานได้จริงแล้ว** — `make` ผ่านโดยไม่มี warning และตรวจจับ deadlock ได้พร้อมชี้บรรทัดในซอร์ส
+
+| ส่วน | สถานะ |
+| --- | --- |
+| ดัก `pthread_mutex_*` ด้วย LD_PRELOAD | ✅ |
+| ตารางสถานะ thread / mutex | ✅ |
+| wait-for graph + cycle detection (DFS) | ✅ |
+| detector thread ตรวจตามคาบ | ✅ |
+| รายงานพร้อม `file:line` | ✅ |
+| export Graphviz | ✅ |
+| โปรแกรมทดสอบ `bank` / `no_deadlock` | ✅ |
+| เตือน lock-order inversion ล่วงหน้า | 🚧 ยังไม่ได้ทำ |
+
+ลองเองทั้งชุดได้ด้วย `make demo` หรือ `./tests/run_demo.sh`
 
 ## โครงสร้างไฟล์
 
@@ -154,6 +166,11 @@ dot -Tpng cycle.dot -o cycle.png
 - ใช้ไม่ได้กับ binary ที่ลิงก์ `libpthread` แบบ static
 - ตรวจแบบ **detection** (เจอหลังค้างแล้ว) ไม่ใช่ prevention — ไม่ได้กันไม่ให้ค้าง
 - แต่ละการล็อกมี overhead เพิ่ม จึงอาจเปลี่ยนจังหวะการทำงานของโปรแกรมที่มี race
+- ไม่รองรับ mutex ชนิด `PTHREAD_MUTEX_RECURSIVE` — thread เดิมล็อกตัวเดิมซ้ำจะนับเป็นครั้งเดียว
+- จะชี้ `file:line` ได้ต้องมี `addr2line` (แพ็กเกจ binutils) ตอนรัน และโปรแกรมเป้าหมายต้อง build ด้วย `-g`
+  ถ้าขาดอย่างใดอย่างหนึ่งจะถอยไปแสดง `at pc 0x...` แทน ยังบอกได้ว่าใครค้างกับใคร
+- `LD_PRELOAD` ตกทอดไปยัง process ลูกด้วย จึงอาจได้รายงานจากโปรแกรมที่ไม่ได้ตั้งใจตรวจ
+  (เป็นข้อดีถ้าอยากตามทั้ง process tree แต่เป็นกับดักถ้าไม่รู้)
 
 ## เนื้อหาในบทเรียนที่ครอบคลุม
 
