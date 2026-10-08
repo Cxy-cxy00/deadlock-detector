@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Banker Algorithm — ซิมูเลเตอร์</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f6f7f9; --card:#ffffff; --ink:#15181d; --muted:#5d6572;
+  --line:#dfe3e9; --accent:#d64545; --accent2:#2f6fd0; --ok:#2e8b57;
+  --warn:#c77a16; --chip:#eef1f5; --code:#f2f4f7;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#111418; --card:#1a1e24; --ink:#e8eaee; --muted:#9aa3b0;
+    --line:#2b313a; --accent:#ff6b6b; --accent2:#6aa6ff; --ok:#5fd39b;
+    --warn:#e0a84e; --chip:#232932; --code:#1f242b;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111418; --card:#1a1e24; --ink:#e8eaee; --muted:#9aa3b0;
+  --line:#2b313a; --accent:#ff6b6b; --accent2:#6aa6ff; --ok:#5fd39b;
+  --warn:#e0a84e; --chip:#232932; --code:#1f242b;
+}
+*,*::before,*::after{box-sizing:inherit}
+body{
+  margin:0; background:var(--bg); color:var(--ink);
+  font-family:"IBM Plex Sans Thai",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:960px; margin:0 auto; padding:32px 20px 64px}
+header{margin-bottom:36px}
+.kicker{font-size:13px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600}
+h1{font-size:clamp(26px,5vw,38px); line-height:1.25; margin:6px 0 10px; font-weight:700}
+.sub{color:var(--muted); font-size:16px; margin:0}
+.tags{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px}
+.tag{background:var(--chip); border:1px solid var(--line); border-radius:999px; padding:4px 12px; font-size:13px; color:var(--muted)}
+section{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px; margin-bottom:20px}
+h2{font-size:19px; margin:0 0 4px; font-weight:600; display:flex; align-items:center; gap:10px}
+.num{background:var(--accent2); color:#fff; width:26px; height:26px; border-radius:8px;
+  display:inline-flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; flex:none}
+.lead{color:var(--muted); font-size:15px; margin:0 0 16px}
+p{margin:0 0 12px}
+code{font-family:"JetBrains Mono",ui-monospace,monospace; font-size:.92em;
+  background:var(--chip); padding:1px 5px; border-radius:5px}
+.bad{color:var(--accent); font-weight:600}
+.good{color:var(--ok); font-weight:600}
+.row{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:14px}
+button{
+  font-family:inherit; font-size:14px; font-weight:600; cursor:pointer;
+  background:var(--chip); color:var(--ink); border:1px solid var(--line);
+  border-radius:9px; padding:7px 14px; transition:.12s;
+}
+button:hover{border-color:var(--accent2); color:var(--accent2)}
+button.primary{background:var(--accent2); color:#fff; border-color:var(--accent2)}
+button.primary:hover{opacity:.88; color:#fff}
+button.sel{border-color:var(--accent2); color:var(--accent2); background:var(--card)}
+button.ghost{font-weight:500; font-size:13px; padding:5px 11px}
+.tablewrap{overflow-x:auto; margin:12px 0}
+table{border-collapse:collapse; font-size:14px}
+th,td{text-align:center; padding:7px 10px; border:1px solid var(--line)}
+th{font-weight:600; color:var(--muted); font-size:12px; letter-spacing:.04em; background:var(--code)}
+td.rowhead{font-weight:700; background:var(--code); text-align:left; min-width:56px}
+input[type=number]{
+  font-family:"JetBrains Mono",ui-monospace,monospace; font-size:14px;
+  width:48px; text-align:center; padding:4px 2px;
+  background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:6px;
+}
+input[type=number]:focus{outline:2px solid var(--accent2); outline-offset:-1px}
+select{
+  font-family:inherit; font-size:14px; padding:6px 10px; border-radius:8px;
+  background:var(--bg); color:var(--ink); border:1px solid var(--line);
+}
+td.computed{font-family:"JetBrains Mono",ui-monospace,monospace; background:var(--code)}
+.log{margin:14px 0 0; padding:0; list-style:none}
+.log li{
+  padding:9px 13px; margin-bottom:6px; border-radius:9px; font-size:14px;
+  background:var(--code); border-left:3px solid var(--line);
+  font-family:"JetBrains Mono",ui-monospace,monospace;
+}
+.log li.take{border-left-color:var(--ok)}
+.log li.skip{border-left-color:var(--muted); color:var(--muted)}
+.log li.fail{border-left-color:var(--accent)}
+.verdict{padding:14px 16px; border-radius:11px; margin-top:14px; font-size:15px; font-weight:600}
+.verdict.safe{background:rgba(46,139,87,.12); border:1px solid var(--ok); color:var(--ok)}
+.verdict.unsafe{background:rgba(214,69,69,.12); border:1px solid var(--accent); color:var(--accent)}
+.verdict .detail{font-weight:400; color:var(--ink); margin-top:6px; font-size:14px}
+.figure{background:var(--code); border:1px solid var(--line); border-radius:10px; padding:16px; margin:14px 0}
+.figure svg{display:block; width:100%; height:auto}
+.legend{display:flex; flex-wrap:wrap; gap:16px; justify-content:center; font-size:13px; color:var(--muted); margin-top:10px}
+.legend span{display:inline-flex; align-items:center; gap:6px}
+.swatch{width:22px; height:3px; border-radius:2px; display:inline-block}
+footer{color:var(--muted); font-size:13px; text-align:center; margin-top:28px}
+.hint{font-size:13px; color:var(--muted); margin-top:10px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div class="kicker">03603332 Operating Systems · Group Project</div>
+  <h1>Banker's Algorithm</h1>
+  <p class="sub">ซิมูเลเตอร์ deadlock avoidance — กดดูทีละขั้นว่าทำไมคำขอบางอันถึงถูกปฏิเสธทั้งที่ของยังเหลือ</p>
+  <div class="tags">
+    <span class="tag">Deadlock Avoidance</span>
+    <span class="tag">Safety Algorithm</span>
+    <span class="tag">Resource Allocation Graph</span>
+    <span class="tag">บท Deadlocks</span>
+  </div>
+</header>
+
+<section>
+  <h2><span class="num">?</span> แนวคิดใน 30 วินาที</h2>
+  <p class="lead">นายธนาคารมีเงินจำกัด ลูกค้าแต่ละคนแจ้ง "วงเงินสูงสุด" ไว้ล่วงหน้า</p>
+  <p>เวลามีคนมาขอเบิก นายธนาคารไม่ได้ถามแค่ว่า <em>ตอนนี้เงินพอจ่ายไหม</em> แต่ถามว่า:</p>
+  <p style="font-size:16px"><strong>ถ้าจ่ายก้อนนี้ไป ยังเหลือทางจ่ายให้ทุกคนครบเต็มวงเงินได้ทีละคนอยู่ไหม</strong></p>
+  <p>ถ้ายังมีทาง = <span class="good">safe</span> จ่ายได้ · ถ้าไม่เหลือทาง = <span class="bad">unsafe</span> ปฏิเสธ ให้รอไปก่อน
+     <strong>แม้เงินในมือจะพอจ่ายก็ตาม</strong></p>
+  <p class="hint">process = ลูกค้า · resource = เงิน · OS = นายธนาคาร<br>
+     unsafe ไม่ได้แปลว่าค้างแล้ว แต่แปลว่า "อาจค้างถ้าทุกคนขอเต็มวงเงิน" — Banker's เป็นอัลกอริทึมแบบอนุรักษ์นิยม
+     มันปฏิเสธคำขอที่จริง ๆ อาจไม่มีปัญหาก็ได้</p>
+</section>
+
+<section>
+  <h2><span class="num">1</span> ตั้งค่าระบบ</h2>
+  <p class="lead">เลือกตัวอย่างสำเร็จรูป หรือแก้ตัวเลขในตารางเองได้เลย</p>
+  <div class="row" id="presets"></div>
+  <div class="row">
+    <button class="ghost" onclick="addProc()">+ process</button>
+    <button class="ghost" onclick="delProc()">− process</button>
+    <button class="ghost" onclick="addRes()">+ ชนิด resource</button>
+    <button class="ghost" onclick="delRes()">− ชนิด resource</button>
+  </div>
+  <div class="tablewrap" id="setupTable"></div>
+  <p class="hint"><strong>Need = Max − Allocation</strong> (ขอเพิ่มได้อีกเท่าไหร่) ·
+     <strong>Available = Total − ผลรวม Allocation</strong> (ของว่างในระบบ)<br>
+     ช่องพื้นเทาคำนวณให้อัตโนมัติ แก้ไม่ได้</p>
+</section>
+
+<section>
+  <h2><span class="num">2</span> ตรวจว่าสถานะนี้ปลอดภัยไหม</h2>
+  <p class="lead">หา process ที่ของว่างพอจ่ายให้ครบ Need แล้วสมมติว่ามันทำงานจบและคืนของทั้งหมด วนแบบนี้จนครบทุกตัว</p>
+  <div class="row">
+    <button class="primary" onclick="runSafety()">ตรวจสถานะปลอดภัย</button>
+  </div>
+  <div id="safetyOut"></div>
+</section>
+
+<section>
+  <h2><span class="num">3</span> จำลองการขอทรัพยากร</h2>
+  <p class="lead">หัวใจของ Banker's — ลองขอดูว่าได้หรือไม่ได้ และเพราะอะไร</p>
+  <div class="row" id="reqForm"></div>
+  <div id="reqOut"></div>
+  <p class="hint">คำขอที่ถูกปฏิเสธจะกลายเป็น "คำขอค้าง" (process นั้นรออยู่) แล้วโผล่เป็นลูกศรแดงในกราฟข้างล่าง</p>
+</section>
+
+<section>
+  <h2><span class="num">4</span> Resource Allocation Graph</h2>
+  <p class="lead">วงกลม = process · สี่เหลี่ยม = resource (จุดข้างใน = instance ที่ยังว่าง)</p>
+  <div class="figure"><div id="rag"></div></div>
+  <div class="legend">
+    <span><i class="swatch" style="background:var(--ok)"></i> assignment edge · R to P (ถูกถืออยู่)</span>
+    <span><i class="swatch" style="background:var(--accent)"></i> request edge · P to R (กำลังขอ)</span>
+  </div>
+  <div id="deadlockOut"></div>
+</section>
+
+<footer>
+  ส่วนเสริมของโปรเจ็ค Deadlock Detector · เปิดไฟล์นี้ในเบราว์เซอร์ได้เลย ไม่ต้องติดตั้งอะไร
+</footer>
+
+</div>
+<script>
+/* ===================================================================
+ * สถานะของระบบ
+ *   total          จำนวน resource ทั้งหมดของแต่ละชนิด
+ *   procs[i].max   วงเงินสูงสุดที่ process i ประกาศไว้ล่วงหน้า
+ *   procs[i].alloc ที่ถืออยู่ตอนนี้
+ *   procs[i].pend  คำขอที่ค้างอยู่ (ถูกปฏิเสธแล้วรออยู่) ใช้วาดกราฟและตรวจ deadlock
+ * =================================================================== */
+
+var PRESETS = {
+  textbook: {
+    label: 'ตัวอย่างในตำรา (5 process)',
+    res: ['A', 'B', 'C'],
+    total: [10, 5, 7],
+    procs: [
+      { name: 'P0', max: [7,5,3], alloc: [0,1,0] },
+      { name: 'P1', max: [3,2,2], alloc: [2,0,0] },
+      { name: 'P2', max: [9,0,2], alloc: [3,0,2] },
+      { name: 'P3', max: [2,2,2], alloc: [2,1,1] },
+      { name: 'P4', max: [4,3,3], alloc: [0,0,2] }
+    ]
+  },
+  simple: {
+    label: 'ธนาคารเงิน 10 ล้าน',
+    res: ['เงิน'],
+    total: [10],
+    procs: [
+      { name: 'A', max: [7], alloc: [3] },
+      { name: 'B', max: [4], alloc: [2] },
+      { name: 'C', max: [5], alloc: [2] }
+    ]
+  },
+  unsafe: {
+    label: 'สถานะไม่ปลอดภัย',
+    res: ['เงิน'],
+    total: [10],
+    procs: [
+      { name: 'A', max: [7], alloc: [6] },
+      { name: 'B', max: [4], alloc: [2] },
+      { name: 'C', max: [5], alloc: [2] }
+    ]
+  },
+  deadlock: {
+    label: 'ค้างแล้ว (เคสเดียวกับ bank.c)',
+    res: ['alice', 'bob'],
+    total: [1, 1],
+    procs: [
+      { name: 'T1', max: [1,1], alloc: [1,0], pend: [0,1] },
+      { name: 'T2', max: [1,1], alloc: [0,1], pend: [1,0] }
+    ]
+  }
+};
+
+var S = null;
+var CURRENT = 'textbook';
+
+function zeros(n) { var a = [], i; for (i = 0; i < n; i++) a.push(0); return a; }
+function vec(a) { return '(' + a.join(', ') + ')'; }
+function lte(a, b) { return a.every(function (v, j) { return v <= b[j]; }); }
+
+function loadPreset(key) {
+  var p = PRESETS[key];
+  CURRENT = key;
+  S = {
+    res: p.res.slice(),
+    total: p.total.slice(),
+    procs: p.procs.map(function (q) {
+      return {
+        name: q.name,
+        max: q.max.slice(),
+        alloc: q.alloc.slice(),
+        pend: q.pend ? q.pend.slice() : zeros(q.max.length)
+      };
+    })
+  };
+  clearOutputs();
+  render();
+}
+
+function clearOutputs() {
+  document.getElementById('safetyOut').innerHTML = '';
+  document.getElementById('reqOut').innerHTML = '';
+}
+
+/* ---- ค่าที่คำนวณได้จากตาราง ---- */
+function needOf(i) {
+  return S.procs[i].max.map(function (v, j) {
+    return Math.max(0, v - S.procs[i].alloc[j]);
+  });
+}
+function allNeeds() {
+  return S.procs.map(function (p, i) { return needOf(i); });
+}
+function allAllocs() {
+  return S.procs.map(function (p) { return p.alloc.slice(); });
+}
+function availableVec() {
+  return S.total.map(function (t, j) {
+    var used = 0;
+    S.procs.forEach(function (p) { used += p.alloc[j]; });
+    return t - used;
+  });
+}
+
+/* ===================================================================
+ * Safety Algorithm — หัวใจของ Banker's
+ *
+ *   Work = Available,  Finish[i] = false ทุกตัว
+ *   หา i ที่ยังไม่ Finish และ Need[i] <= Work
+ *     -> สมมติว่ามันทำงานจนจบแล้วคืนของทั้งหมด: Work += Allocation[i]
+ *   วนจนไม่มีใครเข้าเงื่อนไข
+ *   Finish ครบทุกตัว = safe  และลำดับที่หยิบมาคือ safe sequence
+ * =================================================================== */
+function safetyCheck(avail, allocs, needs) {
+  var n = allocs.length;
+  var work = avail.slice();
+  var finish = [];
+  var seq = [];
+  var steps = [];
+  var i, j, moved, before;
+
+  for (i = 0; i < n; i++) finish.push(false);
+
+  moved = true;
+  while (moved) {
+    moved = false;
+    for (i = 0; i < n; i++) {
+      if (finish[i]) continue;
+      if (lte(needs[i], work)) {
+        before = work.slice();
+        for (j = 0; j < work.length; j++) work[j] += allocs[i][j];
+        finish[i] = true;
+        seq.push(i);
+        steps.push({ type: 'take', i: i, need: needs[i], before: before,
+                     after: work.slice(), alloc: allocs[i] });
+        moved = true;
+        break;               /* เริ่มไล่ใหม่จากตัวแรกเสมอ ให้ลำดับตรงกับในตำรา */
+      } else {
+        steps.push({ type: 'skip', i: i, need: needs[i], before: work.slice() });
+      }
+    }
+  }
+
+  var stuck = [];
+  for (i = 0; i < n; i++) if (!finish[i]) stuck.push(i);
+  return { safe: stuck.length === 0, seq: seq, steps: steps, stuck: stuck, work: work };
+}
+
+/* ===================================================================
+ * Deadlock Detection — ใช้ "คำขอที่ค้างอยู่" แทน Need
+ * process ที่ไม่ได้รออะไร (pend เป็นศูนย์หมด) ย่อมทำงานต่อจนจบได้
+ * ใครยังเหลือค้างตอนจบ = ติดอยู่ใน deadlock
+ * =================================================================== */
+function detectDeadlock() {
+  var n = S.procs.length;
+  var work = availableVec();
+  var finish = [];
+  var i, j, moved;
+
+  for (i = 0; i < n; i++) finish.push(false);
+
+  moved = true;
+  while (moved) {
+    moved = false;
+    for (i = 0; i < n; i++) {
+      if (finish[i]) continue;
+      if (lte(S.procs[i].pend, work)) {
+        for (j = 0; j < work.length; j++) work[j] += S.procs[i].alloc[j];
+        finish[i] = true;
+        moved = true;
+      }
+    }
+  }
+
+  var dead = [];
+  for (i = 0; i < n; i++) if (!finish[i]) dead.push(i);
+  return dead;
+}
+
+/* ===================================================================
+ * วาดตารางและแบบฟอร์ม
+ * =================================================================== */
+
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+
+function renderPresets() {
+  var html = '', k;
+  for (k in PRESETS) {
+    if (!PRESETS.hasOwnProperty(k)) continue;
+    html += '<button class="' + (k === CURRENT ? 'sel' : '') +
+            '" onclick="loadPreset(' + "'" + k + "'" + ')">' + esc(PRESETS[k].label) + '</button>';
+  }
+  document.getElementById('presets').innerHTML = html;
+}
+
+function renderSetup() {
+  var m = S.res.length, n = S.procs.length;
+  var avail = availableVec();
+  var h = '', i, j;
+
+  h += '<table>';
+  h += '<tr><th rowspan="2">Process</th>' +
+       '<th colspan="' + m + '">Allocation (ถืออยู่)</th>' +
+       '<th colspan="' + m + '">Max (วงเงินสูงสุด)</th>' +
+       '<th colspan="' + m + '">Need = Max − Alloc</th></tr><tr>';
+  for (j = 0; j < 3; j++)
+    for (i = 0; i < m; i++) h += '<th>' + esc(S.res[i]) + '</th>';
+  h += '</tr>';
+
+  for (i = 0; i < n; i++) {
+    var need = needOf(i);
+    h += '<tr><td class="rowhead">' + esc(S.procs[i].name) + '</td>';
+    for (j = 0; j < m; j++)
+      h += '<td><input type="number" min="0" value="' + S.procs[i].alloc[j] +
+           '" onchange="setCell(' + i + ',' + j + ',' + "'alloc'" + ',this.value)"></td>';
+    for (j = 0; j < m; j++)
+      h += '<td><input type="number" min="0" value="' + S.procs[i].max[j] +
+           '" onchange="setCell(' + i + ',' + j + ',' + "'max'" + ',this.value)"></td>';
+    for (j = 0; j < m; j++)
+      h += '<td class="computed">' + need[j] + '</td>';
+    h += '</tr>';
+  }
+  h += '</table>';
+
+  h += '<table style="margin-top:14px">';
+  h += '<tr><th>ทรัพยากร</th>';
+  for (i = 0; i < m; i++) h += '<th>' + esc(S.res[i]) + '</th></tr>';
+  h += '<tr><td class="rowhead">Total (มีทั้งหมด)</td>';
+  for (j = 0; j < m; j++)
+    h += '<td><input type="number" min="0" value="' + S.total[j] +
+         '" onchange="setTotal(' + j + ',this.value)"></td>';
+  h += '</tr><tr><td class="rowhead">Available (ว่าง)</td>';
+  for (j = 0; j < m; j++)
+    h += '<td class="computed"' + (avail[j] < 0 ? ' style="color:var(--accent)"' : '') +
+         '>' + avail[j] + '</td>';
+  h += '</tr></table>';
+
+  if (avail.some(function (v) { return v < 0; }))
+    h += '<p class="hint" style="color:var(--accent)">Available ติดลบ — แจกของไปเกินกว่าที่มีจริง ลองลด Allocation หรือเพิ่ม Total</p>';
+
+  document.getElementById('setupTable').innerHTML = h;
+}
+
+function setCell(i, j, which, val) {
+  var v = parseInt(val, 10);
+  if (isNaN(v) || v < 0) v = 0;
+  S.procs[i][which][j] = v;
+  if (which === 'alloc' && S.procs[i].alloc[j] > S.procs[i].max[j])
+    S.procs[i].max[j] = S.procs[i].alloc[j];     /* ถือเกินวงเงินไม่ได้ ดัน Max ขึ้นให้ */
+  clearOutputs();
+  render();
+}
+
+function setTotal(j, val) {
+  var v = parseInt(val, 10);
+  if (isNaN(v) || v < 0) v = 0;
+  S.total[j] = v;
+  clearOutputs();
+  render();
+}
+
+function addProc() {
+  var m = S.res.length;
+  S.procs.push({ name: 'P' + S.procs.length, max: zeros(m), alloc: zeros(m), pend: zeros(m) });
+  clearOutputs(); render();
+}
+function delProc() {
+  if (S.procs.length <= 1) return;
+  S.procs.pop();
+  clearOutputs(); render();
+}
+function addRes() {
+  if (S.res.length >= 5) return;
+  S.res.push('R' + S.res.length);
+  S.total.push(0);
+  S.procs.forEach(function (p) { p.max.push(0); p.alloc.push(0); p.pend.push(0); });
+  clearOutputs(); render();
+}
+function delRes() {
+  if (S.res.length <= 1) return;
+  S.res.pop(); S.total.pop();
+  S.procs.forEach(function (p) { p.max.pop(); p.alloc.pop(); p.pend.pop(); });
+  clearOutputs(); render();
+}
+
+function renderReqForm() {
+  var h = '', i;
+  h += '<select id="reqProc">';
+  for (i = 0; i < S.procs.length; i++)
+    h += '<option value="' + i + '">' + esc(S.procs[i].name) + '</option>';
+  h += '</select> ขอเพิ่ม ';
+  for (i = 0; i < S.res.length; i++)
+    h += '<span style="color:var(--muted);font-size:13px">' + esc(S.res[i]) + '</span> ' +
+         '<input type="number" min="0" value="0" id="req' + i + '"> ';
+  h += '<button class="primary" onclick="runRequest()">ขอทรัพยากร</button>';
+  h += '<button class="ghost" onclick="clearPending()">ล้างคำขอค้างทั้งหมด</button>';
+  document.getElementById('reqForm').innerHTML = h;
+}
+
+function clearPending() {
+  S.procs.forEach(function (p) { p.pend = zeros(S.res.length); });
+  clearOutputs(); render();
+}
+
+function render() {
+  renderPresets();
+  renderSetup();
+  renderReqForm();
+  renderGraph();
+}
+
+/* ===================================================================
+ * ขั้นที่ 2 — แสดงการไล่ safety algorithm ทีละก้าว
+ * =================================================================== */
+function runSafety() {
+  var avail = availableVec();
+  var r = safetyCheck(avail, allAllocs(), allNeeds());
+  var h = '', i;
+
+  h += '<ul class="log">';
+  h += '<li style="border-left-color:var(--accent2);font-weight:600">' +
+       'เริ่มต้น Work = Available = ' + vec(avail) + '</li>';
+
+  r.steps.forEach(function (s) {
+    var nm = esc(S.procs[s.i].name);
+    if (s.type === 'take') {
+      h += '<li class="take">' + nm + ' ขออีก ' + vec(s.need) + ' พอดีกับ Work ' + vec(s.before) +
+           ' → ให้ทำงานจบ คืนของ ' + vec(s.alloc) + ' → Work = ' + vec(s.after) + '</li>';
+    } else {
+      h += '<li class="skip">' + nm + ' ขออีก ' + vec(s.need) + ' เกิน Work ' + vec(s.before) +
+           ' → ข้ามไปก่อน</li>';
+    }
+  });
+  h += '</ul>';
+
+  if (r.safe) {
+    var names = r.seq.map(function (k) { return esc(S.procs[k].name); });
+    h += '<div class="verdict safe">สถานะปลอดภัย (SAFE)' +
+         '<div class="detail">มีลำดับที่ทำให้ทุก process ทำงานจบได้: <strong>' +
+         names.join(' → ') + '</strong><br>' +
+         'ตราบใดที่ยังอยู่ในสถานะแบบนี้ deadlock เกิดไม่ได้<br><span style="color:var(--muted)">หมายเหตุ: safe sequence อาจมีได้หลายแบบ อัลกอริทึมไล่จากบนลงล่างจึงเจอแบบนี้ก่อน — ขอแค่มีอย่างน้อยหนึ่งแบบก็ถือว่าปลอดภัยแล้ว</span></div></div>';
+  } else {
+    var stuckNames = r.stuck.map(function (k) { return esc(S.procs[k].name); });
+    h += '<div class="verdict unsafe">สถานะไม่ปลอดภัย (UNSAFE)' +
+         '<div class="detail">ไล่จนสุดแล้วเหลือ <strong>' + stuckNames.join(', ') +
+         '</strong> ที่ไปต่อไม่ได้ เพราะของว่างสุดท้าย ' + vec(r.work) + ' ไม่พอ Need ของใครเลย<br>' +
+         'ย้ำ: ยังไม่ได้ค้างจริง แต่ถ้าทุกคนขอเต็มวงเงินเมื่อไหร่ก็จะค้าง — Banker จึงไม่ยอมให้เข้าสถานะนี้ตั้งแต่แรก</div></div>';
+  }
+  document.getElementById('safetyOut').innerHTML = h;
+}
+
+/* ===================================================================
+ * ขั้นที่ 3 — Resource-Request Algorithm
+ *   1. Request <= Need ไหม       ไม่ใช่ = ขอเกินวงเงินที่ประกาศไว้ ผิดกติกา
+ *   2. Request <= Available ไหม  ไม่ใช่ = ของไม่พอ ต้องรอ
+ *   3. ลองจัดให้ดูก่อน แล้วรัน safety ถ้ายัง safe ค่อยให้จริง ไม่งั้นถอยกลับ
+ * =================================================================== */
+function runRequest() {
+  var i = parseInt(document.getElementById('reqProc').value, 10);
+  var req = [], j;
+  for (j = 0; j < S.res.length; j++) {
+    var v = parseInt(document.getElementById('req' + j).value, 10);
+    req.push(isNaN(v) || v < 0 ? 0 : v);
+  }
+
+  var nm = esc(S.procs[i].name);
+  var need = needOf(i);
+  var avail = availableVec();
+  var h = '<ul class="log">';
+  h += '<li style="border-left-color:var(--accent2);font-weight:600">' +
+       nm + ' ขอเพิ่ม ' + vec(req) + '</li>';
+
+  /* ---- ตรวจที่ 1 ---- */
+  if (!lte(req, need)) {
+    h += '<li class="fail">ตรวจ 1: คำขอ ' + vec(req) + ' เกิน Need ' + vec(need) +
+         ' → ผิดกติกา เพราะขอเกินวงเงินที่ประกาศไว้ตั้งแต่แรก</li></ul>';
+    h += '<div class="verdict unsafe">ปฏิเสธ — คำขอเกิน Max ที่ประกาศไว้' +
+         '<div class="detail">ใน Banker ทุก process ต้องแจ้งวงเงินสูงสุดล่วงหน้า และห้ามขอเกินนั้น</div></div>';
+    document.getElementById('reqOut').innerHTML = h;
+    return;
+  }
+  h += '<li class="take">ตรวจ 1: คำขอ ' + vec(req) + ' ไม่เกิน Need ' + vec(need) + ' ผ่าน</li>';
+
+  /* ---- ตรวจที่ 2 ---- */
+  if (!lte(req, avail)) {
+    h += '<li class="fail">ตรวจ 2: คำขอ ' + vec(req) + ' เกินของว่าง ' + vec(avail) +
+         ' → ของไม่พอจริง ๆ ต้องรอ</li></ul>';
+    S.procs[i].pend = req.slice();
+    h += '<div class="verdict unsafe">ต้องรอ — ของไม่พอ' +
+         '<div class="detail">' + nm + ' ถูกบันทึกเป็นคำขอค้าง ดูลูกศรแดงในกราฟข้างล่าง</div></div>';
+    document.getElementById('reqOut').innerHTML = h;
+    render();
+    return;
+  }
+  h += '<li class="take">ตรวจ 2: คำขอ ' + vec(req) + ' ไม่เกินของว่าง ' + vec(avail) + ' ผ่าน</li>';
+
+  /* ---- ตรวจที่ 3: ลองจัดให้แล้วดูว่ายัง safe ไหม ---- */
+  var tryAlloc = allAllocs();
+  var tryNeed = allNeeds();
+  var tryAvail = avail.slice();
+  for (j = 0; j < S.res.length; j++) {
+    tryAlloc[i][j] += req[j];
+    tryNeed[i][j] -= req[j];
+    tryAvail[j] -= req[j];
+  }
+  h += '<li class="skip">ตรวจ 3: สมมติว่าจัดให้แล้ว ของว่างจะเหลือ ' + vec(tryAvail) +
+       ' — ลองรัน safety algorithm ดู</li>';
+
+  var r = safetyCheck(tryAvail, tryAlloc, tryNeed);
+  h += '</ul>';
+
+  if (r.safe) {
+    for (j = 0; j < S.res.length; j++) S.procs[i].alloc[j] += req[j];
+    S.procs[i].pend = zeros(S.res.length);
+    var names = r.seq.map(function (k) { return esc(S.procs[k].name); });
+    h += '<div class="verdict safe">อนุมัติ — จัดให้แล้ว' +
+         '<div class="detail">หลังจัดให้ยังอยู่ในสถานะปลอดภัย ลำดับที่รองรับได้: <strong>' +
+         names.join(' → ') + '</strong><br>ตารางข้างบนอัปเดตแล้ว</div></div>';
+    document.getElementById('reqOut').innerHTML = h;
+    render();
+  } else {
+    S.procs[i].pend = req.slice();
+    var stuckNames = r.stuck.map(function (k) { return esc(S.procs[k].name); });
+    h += '<div class="verdict unsafe">ปฏิเสธ — ของพอจ่าย แต่จ่ายแล้วไม่ปลอดภัย' +
+         '<div class="detail">ถ้าจัดให้ จะเหลือ ' + stuckNames.join(', ') +
+         ' ที่ไปต่อไม่ได้เลย → ถอยกลับ ไม่จัดให้ และให้ ' + nm + ' รอไปก่อน<br>' +
+         '<strong>นี่คือจุดสำคัญที่สุดของ Banker: มีของพอให้ ไม่ได้แปลว่าให้แล้วปลอดภัย</strong></div></div>';
+    document.getElementById('reqOut').innerHTML = h;
+    render();
+  }
+}
+
+/* ===================================================================
+ * ขั้นที่ 4 — วาด Resource Allocation Graph
+ *   วงกลม = process        สี่เหลี่ยม = resource (จุด = instance)
+ *   เส้นเขียว R -> P       assignment edge (ถูกถืออยู่)
+ *   เส้นแดง  P -> R        request edge (กำลังขอ แต่ยังไม่ได้)
+ * =================================================================== */
+function renderGraph() {
+  var n = S.procs.length, m = S.res.length;
+  var avail = availableVec();
+  var W = 640, SP = 100, R = 30, BW = 100, BH = 66;
+  var H = Math.max(n, m) * SP + 40;
+  var PX = 110, RX = 490;
+  var topP = (H - (n - 1) * SP) / 2;
+  var topR = (H - (m - 1) * SP) / 2;
+  var i, j, s = '';
+
+  function py(k) { return topP + k * SP; }
+  function ry(k) { return topR + k * SP; }
+
+  s += '<svg viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" ' +
+       'font-family="IBM Plex Sans Thai, sans-serif">';
+  s += '<defs>';
+  s += '<marker id="ag" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+       '<path d="M 0 0 L 10 5 L 0 10 z" fill="var(--ok)"/></marker>';
+  s += '<marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">' +
+       '<path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"/></marker>';
+  s += '</defs>';
+
+  /* ---- เส้นเชื่อม วาดก่อนเพื่อให้อยู่ใต้ node ---- */
+  for (i = 0; i < n; i++) {
+    for (j = 0; j < m; j++) {
+      var x1 = RX - BW / 2, x2 = PX + R;
+      if (S.procs[i].alloc[j] > 0) {
+        var ya = ry(j) - 7, yb = py(i) - 7;
+        s += '<line x1="' + x1 + '" y1="' + ya + '" x2="' + x2 + '" y2="' + yb +
+             '" stroke="var(--ok)" stroke-width="2" marker-end="url(#ag)"/>';
+        s += '<text x="' + ((x1 + x2) / 2) + '" y="' + ((ya + yb) / 2 - 6) +
+             '" text-anchor="middle" font-size="12" fill="var(--ok)" font-weight="600">' +
+             S.procs[i].alloc[j] + '</text>';
+      }
+      if (S.procs[i].pend[j] > 0) {
+        var yc = py(i) + 7, yd = ry(j) + 7;
+        s += '<line x1="' + x2 + '" y1="' + yc + '" x2="' + x1 + '" y2="' + yd +
+             '" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#ar)"/>';
+        s += '<text x="' + ((x1 + x2) / 2) + '" y="' + ((yc + yd) / 2 + 16) +
+             '" text-anchor="middle" font-size="12" fill="var(--accent)" font-weight="600">' +
+             S.procs[i].pend[j] + '</text>';
+      }
+    }
+  }
+
+  /* ---- node ของ process ---- */
+  var dead = detectDeadlock();
+  for (i = 0; i < n; i++) {
+    var isDead = dead.indexOf(i) >= 0;
+    s += '<circle cx="' + PX + '" cy="' + py(i) + '" r="' + R +
+         '" fill="var(--card)" stroke="' + (isDead ? 'var(--accent)' : 'var(--accent2)') +
+         '" stroke-width="' + (isDead ? 3 : 2) + '"/>';
+    s += '<text x="' + PX + '" y="' + (py(i) + 5) + '" text-anchor="middle" font-size="14" ' +
+         'font-weight="700" fill="var(--ink)">' + esc(S.procs[i].name) + '</text>';
+  }
+
+  /* ---- node ของ resource พร้อมจุดบอกจำนวน instance ---- */
+  for (j = 0; j < m; j++) {
+    var bx = RX - BW / 2, by = ry(j) - BH / 2;
+    s += '<rect x="' + bx + '" y="' + by + '" width="' + BW + '" height="' + BH +
+         '" rx="10" fill="var(--card)" stroke="var(--line)" stroke-width="2"/>';
+    s += '<text x="' + RX + '" y="' + (by + 22) + '" text-anchor="middle" font-size="13" ' +
+         'font-weight="700" fill="var(--ink)">' + esc(S.res[j]) + '</text>';
+
+    var tot = S.total[j], free = Math.max(0, avail[j]);
+    if (tot <= 8 && tot > 0) {
+      var gap = 15, startX = RX - (tot - 1) * gap / 2, k;
+      for (k = 0; k < tot; k++) {
+        var filled = k < free;
+        s += '<circle cx="' + (startX + k * gap) + '" cy="' + (by + 44) + '" r="5" ' +
+             'fill="' + (filled ? 'var(--ok)' : 'none') + '" stroke="var(--muted)" stroke-width="1.5"/>';
+      }
+    } else {
+      s += '<text x="' + RX + '" y="' + (by + 48) + '" text-anchor="middle" font-size="13" ' +
+           'fill="var(--muted)" font-family="JetBrains Mono, monospace">' + free + ' / ' + tot + '</text>';
+    }
+  }
+  s += '</svg>';
+  document.getElementById('rag').innerHTML = s;
+
+  /* ---- สรุปว่าค้างแล้วหรือยัง ---- */
+  var anyPend = S.procs.some(function (p) {
+    return p.pend.some(function (v) { return v > 0; });
+  });
+  var d = '';
+  if (dead.length > 0) {
+    var names = dead.map(function (k) { return esc(S.procs[k].name); });
+    d = '<div class="verdict unsafe">เกิด deadlock แล้ว — ' + names.join(', ') +
+        '<div class="detail">ไล่แล้วไม่มีใครในกลุ่มนี้ได้ของที่ขอเลย และต่างคนต่างถือของที่อีกฝ่ายต้องการ ' +
+        'ลูกศรในกราฟวนครบรอบ<br>' +
+        'นี่คือสถานการณ์เดียวกับที่เครื่องมือ LD_PRELOAD ของโปรเจ็คนี้ตรวจจับในโปรแกรมจริง</div></div>';
+  } else if (anyPend) {
+    d = '<div class="verdict safe">มีคนรออยู่ แต่ยังไม่ deadlock' +
+        '<div class="detail">ยังมี process ที่เดินต่อได้และจะคืนของให้คนที่รอในที่สุด</div></div>';
+  } else {
+    d = '<p class="hint">ยังไม่มี process ไหนรออะไร — ลองสั่งคำขอที่เกินของว่างในขั้นที่ 3 ดู ' +
+        'หรือกดตัวอย่าง "ค้างแล้ว" ด้านบน</p>';
+  }
+  document.getElementById('deadlockOut').innerHTML = d;
+}
+
+/* ---- เริ่มทำงาน ---- */
+loadPreset('textbook');
+</script>
+</body>
+</html>

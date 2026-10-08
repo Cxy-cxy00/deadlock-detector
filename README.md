@@ -97,6 +97,7 @@ T1 กับ T2 ค้างอยู่ทั้งคู่ แต่ detector
 | รายงานพร้อม `file:line` | ✅ |
 | export Graphviz | ✅ |
 | โปรแกรมทดสอบ `bank` / `no_deadlock` | ✅ |
+| ซิมูเลเตอร์ Banker's Algorithm (`docs/banker.html`) | ✅ |
 | เตือน lock-order inversion ล่วงหน้า | 🚧 ยังไม่ได้ทำ |
 
 ลองเองทั้งชุดได้ด้วย `make demo` หรือ `./tests/run_demo.sh`
@@ -118,6 +119,7 @@ tests/
   run_demo.sh    ลำดับขั้นตอน demo ตอนนำเสนอ
 docs/
   overview.html  สไลด์/หน้าสรุปโปรเจ็ค (เปิดในเบราว์เซอร์)
+  banker.html    ซิมูเลเตอร์ Banker's Algorithm — deadlock avoidance (เปิดในเบราว์เซอร์)
   design.md      บันทึกการออกแบบและข้อจำกัด
 ```
 
@@ -174,4 +176,5 @@ dot -Tpng cycle.dot -o cycle.png
 
 ## เนื้อหาในบทเรียนที่ครอบคลุม
 
-เงื่อนไข Coffman · wait-for graph · deadlock detection · deadlock prevention · lock ordering
+เงื่อนไข Coffman · wait-for graph · resource allocation graph · deadlock detection ·
+deadlock prevention (lock ordering) · deadlock avoidance (Banker's Algorithm) · safe / unsafe state
