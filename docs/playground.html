@@ -111,6 +111,48 @@ svg.graph{display:block; width:100%; height:auto; max-width:100%; margin:6px 0}
 .notice{background:var(--chip); border:1px solid var(--warn); border-left:3px solid var(--warn);
   border-radius:10px; padding:13px 15px; font-size:14px; margin:14px 0}
 footer{color:var(--muted); font-size:13px; text-align:center; margin-top:28px}
+
+/* ---- แถบสถานะเครื่องมือ ---- */
+.statusbar{display:flex; flex-wrap:wrap; gap:8px 18px; align-items:center;
+  background:var(--card); border:1px solid var(--line); border-radius:12px;
+  padding:11px 16px; margin-bottom:20px; font-size:13px}
+.statusbar .item{display:inline-flex; align-items:center; gap:7px; color:var(--muted)}
+.statusbar .item b{color:var(--ink); font-weight:600;
+  font-family:"JetBrains Mono",ui-monospace,monospace; font-size:12.5px}
+.dot{width:8px; height:8px; border-radius:50%; background:var(--muted); flex:none}
+.dot.on{background:var(--ok); box-shadow:0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent)}
+.dot.off{background:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent)}
+
+/* ---- ตัวเลขสรุปผล ---- */
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr));
+  gap:10px; margin:14px 0}
+.tile{background:var(--code); border:1px solid var(--line); border-radius:11px;
+  padding:13px 15px}
+.tile .n{font-size:24px; font-weight:700; line-height:1.2;
+  font-family:"JetBrains Mono",ui-monospace,monospace}
+.tile .lbl{font-size:12px; color:var(--muted); margin-top:3px}
+.tile.danger .n{color:var(--accent)}
+.tile.okc .n{color:var(--ok)}
+
+/* ---- ตัวจับเวลาตอนกำลังรัน ---- */
+.timer{font-family:"JetBrains Mono",ui-monospace,monospace; font-size:15px;
+  font-weight:600; color:var(--accent)}
+
+/* ---- โค้ดพร้อมไฮไลต์บรรทัดที่ผิด ---- */
+.codeview{background:var(--code); border:1px solid var(--line); border-radius:10px;
+  max-height:420px; overflow:auto; margin:12px 0;
+  font-family:"JetBrains Mono",ui-monospace,monospace; font-size:12.5px; line-height:1.75}
+.cline{display:flex; align-items:baseline; gap:12px; padding:0 12px; white-space:pre}
+.cline .ln{color:var(--muted); min-width:2.6em; text-align:right; user-select:none; flex:none}
+.cline .src{flex:1 1 auto}
+.cline .tagline{flex:none; font-size:11px; font-weight:600; padding:1px 8px;
+  border-radius:999px; white-space:nowrap; align-self:center}
+.cline.holds{background:color-mix(in srgb, var(--ok) 14%, transparent)}
+.cline.holds .tagline{background:var(--ok); color:#fff}
+.cline.waiting{background:color-mix(in srgb, var(--accent) 16%, transparent)}
+.cline.waiting .tagline{background:var(--accent); color:#fff}
+.codekey{display:flex; flex-wrap:wrap; gap:14px; font-size:13px; color:var(--muted); margin-top:4px}
+.codekey i{display:inline-block; width:13px; height:13px; border-radius:4px; vertical-align:-2px; margin-right:5px}
 </style>
 </head>
 <body>
@@ -126,6 +168,10 @@ footer{color:var(--muted); font-size:13px; text-align:center; margin-top:28px}
     <a href="banker.html">Banker's Algorithm</a>
   </nav>
 </header>
+
+<div class="statusbar" id="statusbar">
+  <span class="item"><i class="dot" id="dotServer"></i> <span id="txtServer">กำลังเช็คเซิร์ฟเวอร์ ...</span></span>
+</div>
 
 <div id="offlineNotice" class="notice" style="display:none">
   <strong>หน้านี้เปิดจากไฟล์โดยตรง จึงรันโค้ดไม่ได้</strong><br>
@@ -165,7 +211,8 @@ make playground</code></pre>
   </div>
   <p class="hint">
     โค้ดถูก compile ด้วย <code>gcc -std=c11 -Wall -Wextra -g -O0 -pthread</code>
-    แล้วรันในโฟลเดอร์ชั่วคราว เสร็จแล้วลบทิ้งอัตโนมัติ<br>
+    แล้วรันในโฟลเดอร์ชั่วคราว เสร็จแล้วลบทิ้งอัตโนมัติ ·
+    กด <code>Ctrl</code>+<code>Enter</code> ในช่องโค้ดเพื่อรันผ่านเครื่องมือได้เลย<br>
     อยากรู้ว่าเครื่องมือดักฟังก์ชันและหา cycle ได้ยังไง ดูที่
     <a href="overview.html">ภาพรวมโปรเจ็ค</a>
   </p>
@@ -506,6 +553,77 @@ int main(void) {
     return parts.join("");
   }
 
+  /* ---------------------------------------------------------- ตัวเลขสรุป */
+  function renderStats(report, data) {
+    var mutexes = {};
+    var sites = 0;
+    report.threads.forEach(function (t) {
+      [t.holds, t.waiting].forEach(function (s) {
+        if (!s) return;
+        if (s.mutex) mutexes[s.mutex] = 1;
+        if (s.site && s.site.indexOf(":") !== -1) sites++;
+      });
+    });
+    function tile(n, label, cls) {
+      return '<div class="tile ' + (cls || "") + '">' +
+             '<div class="n">' + esc(n) + '</div>' +
+             '<div class="lbl">' + esc(label) + '</div></div>';
+    }
+    return '<div class="stats">' +
+      tile(report.threads.length, "thread ที่ค้าง", "danger") +
+      tile(Object.keys(mutexes).length, "mutex ที่เกี่ยวข้อง") +
+      tile(sites, "จุดในโค้ดที่ชี้ได้") +
+      tile(data.timeout + "s", "ตัดการรันที่") +
+      '</div>';
+  }
+
+  /* ------------------------------------------- โค้ดพร้อมไฮไลต์บรรทัดที่ผิด */
+  function renderSource(code, report, filename) {
+    var marks = {};
+    var found = 0;
+
+    report.threads.forEach(function (t) {
+      [["holds", t.holds], ["waiting", t.waiting]].forEach(function (pair) {
+        var kind = pair[0], s = pair[1];
+        if (!s || !s.site) return;
+        var idx = s.site.lastIndexOf(":");
+        if (idx < 0) return;
+        if (s.site.slice(0, idx) !== filename) return;   /* คนละไฟล์ ไม่ไฮไลต์ */
+        var ln = parseInt(s.site.slice(idx + 1), 10);
+        if (!ln) return;
+        (marks[ln] = marks[ln] || []).push({ tid: t.tid, kind: kind });
+        found++;
+      });
+    });
+    if (!found) return "";
+
+    var lines = code.split("\n");
+    var parts = ['<div class="panel"><h3>โค้ดของคุณ — บรรทัดที่เกี่ยวข้อง</h3>',
+                 '<div class="codeview" id="codeview">'];
+    lines.forEach(function (text, i) {
+      var n = i + 1;
+      var mk = marks[n];
+      var cls = "cline";
+      var tag = "";
+      if (mk) {
+        var isWait = mk.some(function (x) { return x.kind === "waiting"; });
+        cls += isWait ? " waiting" : " holds";
+        tag = '<span class="tagline">' + esc(mk.map(function (x) {
+          return "T" + x.tid + (x.kind === "waiting" ? " ค้างตรงนี้" : " ถืออยู่");
+        }).join(" · ")) + '</span>';
+      }
+      parts.push('<div class="' + cls + '"><span class="ln">' + n + '</span>' +
+                 '<span class="src">' + esc(text === "" ? " " : text) + '</span>' +
+                 tag + '</div>');
+    });
+    parts.push('</div>');
+    parts.push('<div class="codekey">' +
+      '<span><i style="background:var(--accent)"></i>แดง = ค้างรออยู่ตรงนี้</span>' +
+      '<span><i style="background:var(--ok)"></i>เขียว = ถือ mutex ไว้ตั้งแต่บรรทัดนี้</span>' +
+      '</div></div>');
+    return parts.join("");
+  }
+
   /* ---------------------------------------------------------- แสดงผล */
   function renderReport(report) {
     var rows = report.threads.map(function (t) {
@@ -535,7 +653,7 @@ int main(void) {
       '</div></div>';
   }
 
-  function render(data, mode) {
+  function render(data, mode, submittedCode) {
     var html = [];
     var modeLabel = mode === "detect" ? "รันผ่านเครื่องมือ" : "รันแบบปกติ";
 
@@ -563,7 +681,9 @@ int main(void) {
               esc(data.stdout || "(ไม่มี output)") + '</code></pre></div>');
 
     if (data.report) {
+      html.push(renderStats(data.report, data));
       html.push(renderReport(data.report));
+      html.push(renderSource(submittedCode, data.report, data.filename || "prog.c"));
     } else if (mode === "detect") {
       if (data.timed_out) {
         html.push('<div class="panel"><h3>เครื่องมือว่าอย่างไร</h3>' +
@@ -676,12 +796,42 @@ int main(void) {
   });
 
   var busy = false;
+  var ticker = null;
 
-  function setBusy(on, msg) {
+  function stopTicker() {
+    if (ticker) { clearInterval(ticker); ticker = null; }
+  }
+
+  /* นับเวลาขึ้นให้เห็นระหว่างรอ — ตอนรันแบบปกติ ตัวเลขที่เดินไปเรื่อย ๆ
+     โดยไม่มีอะไรเกิดขึ้นคือสิ่งที่อยากให้คนดูรู้สึก */
+  function startTicker(mode) {
+    var t0 = Date.now();
+    var label = mode === "detect" ? "รันผ่านเครื่องมือ" : "รันแบบปกติ";
+    stopTicker();
+    ticker = setInterval(function () {
+      var s = ((Date.now() - t0) / 1000).toFixed(1);
+      $("status").innerHTML = label + ' · <span class="timer">' + s + ' วินาที</span>';
+    }, 100);
+  }
+
+  function setBusy(on) {
     busy = on;
     $("runPlain").disabled = on;
     $("runDetect").disabled = on;
-    $("status").textContent = msg || "";
+  }
+
+  function scrollCodeToFirstMark() {
+    var cv = document.getElementById("codeview");
+    if (!cv) return;
+    var first = cv.querySelector(".cline.waiting, .cline.holds");
+    if (!first) return;
+    cv.scrollTop += first.getBoundingClientRect().top - cv.getBoundingClientRect().top - 70;
+  }
+
+  function finish() {
+    stopTicker();
+    setBusy(false);
+    $("status").textContent = "";
   }
 
   function run(mode) {
@@ -690,10 +840,10 @@ int main(void) {
     if (!code.trim()) { $("status").textContent = "ยังไม่ได้ใส่โค้ด"; return; }
     var timeout = Number($("timeout").value);
 
-    setBusy(true, mode === "detect"
-      ? "กำลัง compile แล้วรันผ่านเครื่องมือ ..."
-      : "กำลัง compile แล้วรัน ...");
+    setBusy(true);
+    startTicker(mode);
     $("resultSection").style.display = "";
+    $("result").innerHTML = '<p class="hint">กำลัง compile แล้วรัน ...</p>';
 
     fetch("/api/run", {
       method: "POST",
@@ -702,30 +852,64 @@ int main(void) {
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
+        finish();
         if (data.error) {
           $("result").innerHTML = '<p><span class="badge err">ผิดพลาด</span> ' + esc(data.error) + '</p>';
         } else {
-          $("result").innerHTML = render(data, mode);
+          $("result").innerHTML = render(data, mode, code);
+          scrollCodeToFirstMark();
         }
-        setBusy(false, "");
         $("resultSection").scrollIntoView({ behavior: "smooth", block: "start" });
       })
       .catch(function (err) {
+        finish();
         $("result").innerHTML = '<p><span class="badge err">ติดต่อเซิร์ฟเวอร์ไม่ได้</span> ' +
           esc(err && err.message ? err.message : err) +
           '<br>เซิร์ฟเวอร์ยังรันอยู่หรือเปล่า — สั่ง <code>make playground</code> ใน WSL</p>';
-        setBusy(false, "");
       });
   }
 
   $("runPlain").addEventListener("click", function () { run("plain"); });
   $("runDetect").addEventListener("click", function () { run("detect"); });
 
+  /* กด Ctrl+Enter (หรือ Cmd+Enter) ในช่องโค้ดเพื่อรันผ่านเครื่องมือเลย */
+  ta.addEventListener("keydown", function (e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+      e.preventDefault();
+      run("detect");
+    }
+  });
+
+  /* ---------------------------------------------------------- แถบสถานะ */
+  function item(on, label, value) {
+    return '<span class="item"><i class="dot ' + (on ? "on" : "off") + '"></i>' +
+           esc(label) + (value ? ' <b>' + esc(value) + '</b>' : '') + '</span>';
+  }
+
+  function loadStatus() {
+    fetch("/api/status", { cache: "no-store" })
+      .then(function (r) { return r.json(); })
+      .then(function (s) {
+        $("statusbar").innerHTML =
+          item(true, "เซิร์ฟเวอร์พร้อม") +
+          item(s.lib_ready, s.lib_ready ? "libdetect.so โหลดได้" : "ยังไม่มี libdetect.so — สั่ง make ก่อน") +
+          item(s.gcc, "gcc", s.gcc_version) +
+          item(s.addr2line, s.addr2line ? "addr2line ชี้บรรทัดได้" : "ไม่มี addr2line จะชี้บรรทัดไม่ได้") +
+          item(true, "detector ตรวจทุก", s.interval_ms + " ms");
+      })
+      .catch(function () {
+        $("statusbar").innerHTML = item(false, "ต่อเซิร์ฟเวอร์ไม่ได้ — สั่ง make playground ใน WSL");
+      });
+  }
+
   if (location.protocol === "file:") {
     $("offlineNotice").style.display = "";
     $("runPlain").disabled = true;
     $("runDetect").disabled = true;
     $("status").textContent = "ต้องเปิดผ่านเซิร์ฟเวอร์ถึงจะรันได้";
+    $("statusbar").innerHTML = item(false, "เปิดจากไฟล์โดยตรง จึงรันโค้ดไม่ได้");
+  } else {
+    loadStatus();
   }
 })();
 </script>

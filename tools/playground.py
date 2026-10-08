@@ -185,6 +185,43 @@ def run_code(code, mode, timeout, filename="prog.c"):
     return out
 
 
+RE_INTERVAL = re.compile(r"#define\s+DD_CHECK_INTERVAL_MS\s+(\d+)")
+
+
+def detector_interval_ms():
+    """อ่านคาบการตรวจจาก src/common.h จะได้ไม่ต้องมาแก้สองที่เวลาเปลี่ยนค่า"""
+    try:
+        text = (ROOT / "src" / "common.h").read_text(encoding="utf-8", errors="replace")
+        m = RE_INTERVAL.search(text)
+        if m:
+            return int(m.group(1))
+    except OSError:
+        pass
+    return 500
+
+
+def server_status():
+    """ข้อมูลไว้โชว์แถบสถานะบนหน้าเว็บ ให้รู้ว่าเครื่องมือพร้อมใช้จริงไหม"""
+    gcc = shutil.which("gcc")
+    version = ""
+    if gcc:
+        try:
+            cp = subprocess.run([gcc, "-dumpfullversion"], capture_output=True,
+                                text=True, timeout=10)
+            version = cp.stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            version = ""
+    return {
+        "lib_ready": LIB.is_file(),
+        "lib_path": str(LIB),
+        "gcc": bool(gcc),
+        "gcc_version": version,
+        "addr2line": bool(shutil.which("addr2line")),
+        "interval_ms": detector_interval_ms(),
+        "max_timeout": MAX_TIMEOUT,
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "DeadlockPlayground/1.0"
 
@@ -205,6 +242,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?", 1)[0]
+        if path == "/api/status":
+            self.send_json(200, server_status())
+            return
         if path in ("/", "/index.html"):
             path = "/playground.html"
         target = DOCS / os.path.basename(path)   # basename กัน path traversal
