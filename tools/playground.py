@@ -92,7 +92,28 @@ def as_text(value):
     return value
 
 
-def run_code(code, mode, timeout):
+# ต้องขึ้นต้นด้วยตัวอักษร/ตัวเลข/_/- (ห้ามขึ้นต้นด้วยจุด) และลงท้ายด้วย .c
+RE_SAFE_NAME = re.compile(r"[A-Za-z0-9_-][A-Za-z0-9._-]{0,61}\.c\Z")
+
+
+def safe_filename(name):
+    """ใช้ชื่อไฟล์ที่ผู้ใช้แนบมา เพื่อให้รายงานชี้เป็น bank.c:46 แทน prog.c:46
+
+    ชื่อนี้ถูกเอาไปสร้างไฟล์จริงในโฟลเดอร์ชั่วคราว จึง
+      - ตัด path ทิ้งด้วย basename  กันไม่ให้หลุดออกนอกโฟลเดอร์
+      - รับเฉพาะอักขระปลอดภัยและต้องมีชื่อจริงนำหน้า .c
+    อะไรที่ไม่เข้าเกณฑ์ก็ถอยไปใช้ prog.c
+
+    (ไม่ได้พึ่ง quoting ของ shell เพราะเราเรียก gcc ผ่าน list ไม่ผ่าน shell อยู่แล้ว
+     กฎนี้มีไว้กัน path traversal กับกันชื่อไฟล์ประหลาดที่ทำให้รายงานอ่านไม่รู้เรื่อง)
+    """
+    name = os.path.basename(str(name or "")).strip()
+    if not RE_SAFE_NAME.match(name):
+        return "prog.c"
+    return name
+
+
+def run_code(code, mode, timeout, filename="prog.c"):
     out = {
         "stage": "compile",
         "compile_ok": False,
@@ -116,9 +137,10 @@ def run_code(code, mode, timeout):
 
     with tempfile.TemporaryDirectory(prefix="dd-play-") as td:
         tdp = Path(td)
-        src = tdp / "prog.c"
+        src = tdp / safe_filename(filename)
         exe = tdp / "prog"
         dot = tdp / "cycle.dot"
+        out["filename"] = src.name
         src.write_text(code, encoding="utf-8")
 
         try:
@@ -221,9 +243,10 @@ class Handler(BaseHTTPRequestHandler):
         except (TypeError, ValueError):
             timeout = 5
         timeout = max(MIN_TIMEOUT, min(MAX_TIMEOUT, timeout))
+        filename = req.get("filename") or "prog.c"
 
         try:
-            self.send_json(200, run_code(code, mode, timeout))
+            self.send_json(200, run_code(code, mode, timeout, filename))
         except Exception as exc:
             self.send_json(500, {"error": "server พัง: " + str(exc)})
 

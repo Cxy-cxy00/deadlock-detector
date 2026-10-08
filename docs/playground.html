@@ -77,6 +77,9 @@ textarea{
   tab-size:4;
 }
 textarea:focus,select:focus{outline:2px solid var(--accent2); outline-offset:1px}
+textarea.dragover{outline:2px dashed var(--accent2); outline-offset:3px; background:var(--chip)}
+.fileinfo{font-size:13px; color:var(--muted); margin:9px 0 0}
+.fileinfo strong{color:var(--ink); font-family:"JetBrains Mono",ui-monospace,monospace; font-size:12.5px}
 button{
   border:1px solid var(--line); background:var(--chip); color:var(--ink);
   border-radius:9px; padding:9px 16px; cursor:pointer; font-weight:600;
@@ -189,6 +192,8 @@ libc.so.6                  ตัวจริงที่ทำการล็�
   <div class="controls">
     <label for="preset" style="font-size:14px; color:var(--muted)">ตัวอย่าง</label>
     <select id="preset"></select>
+    <button id="pickFile" type="button">แนบไฟล์ .c</button>
+    <input type="file" id="fileInput" accept=".c,.h,.txt,text/plain" hidden>
     <label for="timeout" style="font-size:14px; color:var(--muted)">ตัดที่</label>
     <select id="timeout">
       <option value="3">3 วินาที</option>
@@ -198,6 +203,9 @@ libc.so.6                  ตัวจริงที่ทำการล็�
   </div>
 
   <textarea id="code" spellcheck="false"></textarea>
+  <p class="fileinfo" id="fileInfo">
+    ลากไฟล์ <code>.c</code> จาก File Explorer มาวางบนช่องโค้ดด้านบนก็ได้
+  </p>
 
   <div class="controls">
     <button id="runPlain">รันแบบปกติ</button>
@@ -641,9 +649,77 @@ int main(void) {
     o.textContent = p.name;
     sel.appendChild(o);
   });
+
+  /* ชื่อไฟล์ที่ส่งไปให้ server ใช้ตั้งชื่อไฟล์จริงตอน compile
+     รายงานจะได้ชี้เป็น bank.c:46 แทนที่จะเป็น prog.c:46 */
+  var currentFile = "bank.c";
+
+  function presetFile(p) {
+    return String(p.name).split(" ")[0] + ".c";
+  }
+
   $("code").value = PRESETS[0].code;
+  currentFile = presetFile(PRESETS[0]);
+
   sel.addEventListener("change", function () {
-    $("code").value = PRESETS[Number(sel.value)].code;
+    var p = PRESETS[Number(sel.value)];
+    $("code").value = p.code;
+    currentFile = presetFile(p);
+    $("fileInfo").innerHTML =
+      "ลากไฟล์ <code>.c</code> จาก File Explorer มาวางบนช่องโค้ดด้านบนก็ได้";
+  });
+
+  /* ---------------------------------------------------------- แนบไฟล์ */
+  function loadFile(file) {
+    if (!file) return;
+    if (file.size > 64 * 1024) {
+      $("fileInfo").innerHTML = '<span class="bad">ไฟล์ใหญ่เกิน 64KB</span> — ' +
+        "หน้านี้รับได้ไม่เกินเท่านี้";
+      return;
+    }
+    var reader = new FileReader();
+    reader.onload = function () {
+      var text = String(reader.result || "");
+      if (text.indexOf(String.fromCharCode(0)) !== -1) {
+        $("fileInfo").innerHTML = '<span class="bad">ไฟล์นี้ไม่ใช่ไฟล์ข้อความ</span> — ' +
+          "หน้านี้รับเฉพาะซอร์สโค้ด C ไม่ใช่ไฟล์ที่ compile แล้ว";
+        return;
+      }
+      $("code").value = text;
+      currentFile = file.name;
+      var size = file.size < 1024
+        ? file.size + " ไบต์"
+        : (Math.round(file.size / 1024 * 10) / 10) + " KB";
+      $("fileInfo").innerHTML = "แนบไฟล์ <strong>" + esc(file.name) + "</strong> แล้ว (" +
+        size + ") — กดปุ่มรันได้เลย";
+    };
+    reader.onerror = function () {
+      $("fileInfo").innerHTML = '<span class="bad">อ่านไฟล์ไม่สำเร็จ</span>';
+    };
+    reader.readAsText(file);
+  }
+
+  $("pickFile").addEventListener("click", function () { $("fileInput").click(); });
+  $("fileInput").addEventListener("change", function (e) {
+    loadFile(e.target.files && e.target.files[0]);
+    e.target.value = "";          /* เลือกไฟล์เดิมซ้ำได้ */
+  });
+
+  var ta = $("code");
+  ["dragenter", "dragover"].forEach(function (ev) {
+    ta.addEventListener(ev, function (e) {
+      e.preventDefault();
+      ta.classList.add("dragover");
+    });
+  });
+  ["dragleave", "dragend", "drop"].forEach(function (ev) {
+    ta.addEventListener(ev, function () { ta.classList.remove("dragover"); });
+  });
+  ta.addEventListener("drop", function (e) {
+    e.preventDefault();
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length) {
+      loadFile(e.dataTransfer.files[0]);
+    }
   });
 
   var busy = false;
@@ -669,7 +745,7 @@ int main(void) {
     fetch("/api/run", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ code: code, mode: mode, timeout: timeout })
+      body: JSON.stringify({ code: code, mode: mode, timeout: timeout, filename: currentFile })
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
