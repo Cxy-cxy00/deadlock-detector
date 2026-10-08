@@ -26,6 +26,12 @@ typedef struct {
 } dd_site_t;
 
 /* ---- log ออก stderr โดยไม่ผ่าน stdio ของโปรแกรมเป้าหมาย ---- */
-void dd_logf(const char *fmt, ...);
+/* พิมพ์เสมอ — ใช้กับรายงาน [DEADLOCK DETECTED] (ไม่เติม prefix ให้) */
+void dd_logf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
+
+/* พิมพ์เฉพาะตอนตั้ง env DD_VERBOSE=1 — ใช้ debug ระหว่างพัฒนา เติม "[dd] " ให้เอง
+ * ปิดอยู่ = คืนทันที ไม่เสีย overhead  จึงวางไว้ใน lock path ได้
+ */
+void dd_dbgf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));
 
 #endif /* DD_COMMON_H */
