@@ -1,0 +1,27 @@
+# timeout 5s env LD_PRELOAD="$PWD/build/libdetect.so" ./build/cycle3
+exit=124
+---- stderr ----
+
+[DEADLOCK DETECTED] 3 threads in cycle
+
+  Thread 613
+      holds   mutex 0x6492e9d1f060   at cycle3.c:39
+      waiting mutex 0x6492e9d1f0a0   at cycle3.c:42
+  Thread 614
+      holds   mutex 0x6492e9d1f0a0   at cycle3.c:48
+      waiting mutex 0x6492e9d1f0e0   at cycle3.c:51
+  Thread 615
+      holds   mutex 0x6492e9d1f0e0   at cycle3.c:57
+      waiting mutex 0x6492e9d1f060   at cycle3.c:60
+
+  Cycle: T613 -> T614 -> T615 -> T613
+  Hint : acquire locks in a consistent global order
+
+---- source lines ----
+39:    pthread_mutex_lock(&a);                 /* t1 ถือ a */
+42:    pthread_mutex_lock(&b);                 /* t1 รอ b (t2 ถือ) */
+48:    pthread_mutex_lock(&b);                 /* t2 ถือ b */
+51:    pthread_mutex_lock(&c);                 /* t2 รอ c (t3 ถือ) */
+57:    pthread_mutex_lock(&c);                 /* t3 ถือ c */
+60:    pthread_mutex_lock(&a);                 /* t3 รอ a (t1 ถือ) -> ปิดวง */
+cycle3 preload: 20/20 runs reported a 3-thread cycle

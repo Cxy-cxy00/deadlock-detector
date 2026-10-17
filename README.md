@@ -103,7 +103,7 @@ T1 กับ T2 ค้างอยู่ทั้งคู่ แต่ detector
 | cycle ยาวเกิน 64 thread: รายงานเป็น partial path ไม่ปิดวงปลอม | ✅ |
 | export Graphviz (`DD_DOT_OUT`) | ✅ |
 | หลาย cycle พร้อมกัน: รายงานทุกวงในการตรวจรอบเดียว วงละครั้ง · `.dot` รวมทุกวง | ✅ (สูงสุด 16 วง) |
-| โปรแกรมทดสอบ `bank` / `no_deadlock` / `sample_webapp` / `two_pairs` | ✅ |
+| โปรแกรมทดสอบ `bank` / `no_deadlock` / `sample_webapp` / `two_pairs` / `cycle3` | ✅ |
 | `tests/run_demo.sh` ตรวจผลจริงทุกขั้น (exit 0 = ผ่านหมด) | ✅ |
 | ซิมูเลเตอร์ Banker's Algorithm (`docs/banker.html`) | ✅ |
 | หน้าเว็บกดรันโค้ดจริง (`docs/playground.html`) | ✅ |
@@ -126,6 +126,7 @@ tests/
   no_deadlock.c  เวอร์ชันล็อกตามลำดับ id รันนาน ≥ 3 คาบของ detector ใช้เช็ค false positive
   sample_webapp.c ตัวอย่างหน้าตาเหมือนโค้ดจริง (pool/stats ล็อกสวนกัน) ใช้ barrier เช่นกัน
   two_pairs.c    deadlock 2 วงพร้อมกัน — ต้องรายงานครบทั้งสองวง
+  cycle3.c       deadlock 3 thread วนเป็นวง a -> b -> c -> a (barrier ให้เกิดทุกครั้ง)
   bench.c        วัด overhead (make bench -> tests/logs/bench.txt)
   run_demo.sh    ลำดับขั้นตอน demo ตอนนำเสนอ พร้อมเงื่อนไขผ่าน/ไม่ผ่าน
   logs/          ผลรันจริงที่อ้างใน README (env, test matrix, demo)
@@ -201,6 +202,7 @@ bash tests/run_demo.sh --no-pause # รันรวดเดียว — exit 0
 | `bank` | ค้าง exit 124 | exit 124 + `[DEADLOCK DETECTED]` |
 | `no_deadlock` | exit 0 | exit 0 ไม่มีรายงาน (detector ตรวจไป 3 รอบระหว่างรัน) |
 | `sample_webapp` | ค้าง exit 124 | exit 124 + `[DEADLOCK DETECTED]` |
+| `cycle3` (วงยาว 3) | ค้าง exit 124 | exit 124 + `3 threads in cycle` (20/20 รอบ, [`phase3_cycle3.txt`](tests/logs/phase3_cycle3.txt)) |
 | `two_pairs` (2 วงพร้อมกัน) | ค้าง exit 124 | exit 124 + รายงาน 2 ครั้ง วงละครั้ง (10/10 รอบ, [`phase3_two_pairs.txt`](tests/logs/phase3_two_pairs.txt)) |
 
 - ความแน่นอน: `bank` แบบ preload ได้รายงาน **20/20** รอบ, `sample_webapp` **20/20** รอบ
