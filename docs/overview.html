@@ -279,7 +279,7 @@ $ timeout 5s env LD_PRELOAD="$PWD/build/libdetect.so" ./build/bank   <span style
   <ul>
     <li>NORMAL mutex เท่านั้น — interpose แค่ <code>pthread_mutex_lock</code> / <code>trylock</code> / <code>unlock</code></li>
     <li>ไม่รองรับ condvar · timedlock · rwlock · semaphore · recursive · process-shared · static binary · fork แบบไม่ exec</li>
-    <li>รายงานทีละ 1 cycle</li>
+    <li>รายงานได้สูงสุด 16 cycle ต่อการตรวจหนึ่งรอบ</li>
     <li>ตารางมีขนาดจำกัด (256 thread รอ · 1024 mutex · cycle ยาวสุด 64) เต็มแล้วอาจตรวจไม่เจอ</li>
     <li>บรรทัดในโค้ดต้องมี <code>-g</code> + <code>addr2line</code> · binary non-PIE ยังแสดงเป็น PC</li>
     <li>poll ทุก 500 ms ไม่ใช่ latency guarantee</li>

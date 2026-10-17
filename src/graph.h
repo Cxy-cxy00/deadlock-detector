@@ -27,9 +27,12 @@ typedef struct {
 /* สร้างกราฟจากตารางใน state.c (snapshot ครั้งเดียว ใต้ dd_state_lock) */
 void dd_graph_build(void);
 
-/* หา cycle ด้วย DFS + สี (white/gray/black)
- * คืน 1 ถ้าเจอและเขียนผลลง out, คืน 0 ถ้าไม่เจอ
+/* จำนวน cycle สูงสุดที่เก็บได้ในการตรวจหนึ่งรอบ */
+#define DD_MAX_CYCLES 16
+
+/* หา cycle ทุกวงด้วย DFS + สี (white/gray/black)
+ * เขียนผลลง out[0..max-1] คืนจำนวนวงที่เจอ (0 = ไม่มี)
  */
-int dd_graph_find_cycle(dd_cycle_t *out);
+size_t dd_graph_find_cycles(dd_cycle_t *out, size_t max);
 
 #endif /* DD_GRAPH_H */

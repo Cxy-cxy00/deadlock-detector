@@ -6,7 +6,7 @@
 
 - interpose `pthread_mutex_lock` / `pthread_mutex_trylock` / `pthread_mutex_unlock` เท่านั้น
 - ตารางสถานะ (array ขนาดคงที่) · wait-for graph + DFS · detector thread ตรวจทุก 500 ms
-- รายงานทีละ 1 cycle พร้อม `file:line` (PIE + `-g` + `addr2line`) · export Graphviz
+- รายงานทุก cycle ที่เจอในการตรวจหนึ่งรอบ (สูงสุด 16 วง วงละครั้ง) พร้อม `file:line` (PIE + `-g` + `addr2line`) · export Graphviz
 - cycle ยาวเกิน `DD_MAX_CYCLE_LEN` รายงานเป็น partial path
 - robust mutex เฉพาะ 2 กรณี: `EOWNERDEAD` นับว่าได้ lock · unlock โดยคนที่ไม่ใช่เจ้าของไม่ลบเจ้าของเดิม
 - **ยังไม่ทำ:** เตือน lock-order inversion ล่วงหน้า

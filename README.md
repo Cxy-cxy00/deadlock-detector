@@ -102,7 +102,8 @@ T1 กับ T2 ค้างอยู่ทั้งคู่ แต่ detector
 | รายงาน `file:line` (PIE + `-g` + `addr2line`) | ✅ |
 | cycle ยาวเกิน 64 thread: รายงานเป็น partial path ไม่ปิดวงปลอม | ✅ |
 | export Graphviz (`DD_DOT_OUT`) | ✅ |
-| โปรแกรมทดสอบ `bank` / `no_deadlock` / `sample_webapp` | ✅ |
+| หลาย cycle พร้อมกัน: รายงานทุกวงในการตรวจรอบเดียว วงละครั้ง · `.dot` รวมทุกวง | ✅ (สูงสุด 16 วง) |
+| โปรแกรมทดสอบ `bank` / `no_deadlock` / `sample_webapp` / `two_pairs` | ✅ |
 | `tests/run_demo.sh` ตรวจผลจริงทุกขั้น (exit 0 = ผ่านหมด) | ✅ |
 | ซิมูเลเตอร์ Banker's Algorithm (`docs/banker.html`) | ✅ |
 | หน้าเว็บกดรันโค้ดจริง (`docs/playground.html`) | ✅ |
@@ -124,6 +125,8 @@ tests/
                  ถือ lock ตัวแรกครบก่อนไปขอตัวที่สอง (ไม่ได้พึ่งจังหวะ sleep)
   no_deadlock.c  เวอร์ชันล็อกตามลำดับ id รันนาน ≥ 3 คาบของ detector ใช้เช็ค false positive
   sample_webapp.c ตัวอย่างหน้าตาเหมือนโค้ดจริง (pool/stats ล็อกสวนกัน) ใช้ barrier เช่นกัน
+  two_pairs.c    deadlock 2 วงพร้อมกัน — ต้องรายงานครบทั้งสองวง
+  bench.c        วัด overhead (make bench -> tests/logs/bench.txt)
   run_demo.sh    ลำดับขั้นตอน demo ตอนนำเสนอ พร้อมเงื่อนไขผ่าน/ไม่ผ่าน
   logs/          ผลรันจริงที่อ้างใน README (env, test matrix, demo)
 docs/
@@ -198,6 +201,7 @@ bash tests/run_demo.sh --no-pause # รันรวดเดียว — exit 0
 | `bank` | ค้าง exit 124 | exit 124 + `[DEADLOCK DETECTED]` |
 | `no_deadlock` | exit 0 | exit 0 ไม่มีรายงาน (detector ตรวจไป 3 รอบระหว่างรัน) |
 | `sample_webapp` | ค้าง exit 124 | exit 124 + `[DEADLOCK DETECTED]` |
+| `two_pairs` (2 วงพร้อมกัน) | ค้าง exit 124 | exit 124 + รายงาน 2 ครั้ง วงละครั้ง (10/10 รอบ, [`phase3_two_pairs.txt`](tests/logs/phase3_two_pairs.txt)) |
 
 - ความแน่นอน: `bank` แบบ preload ได้รายงาน **20/20** รอบ, `sample_webapp` **20/20** รอบ
   ([`phase1_*_preload_x20.txt`](tests/logs/))
@@ -230,7 +234,8 @@ bash tests/run_demo.sh --no-pause # รันรวดเดียว — exit 0
 - **ไม่รองรับ** condition variable · `pthread_mutex_timedlock` · rwlock · semaphore ·
   recursive mutex (ล็อกซ้ำจะนับเป็นครั้งเดียว) · process-shared mutex · static binary ·
   `fork()` แบบไม่ `exec` (TID ที่ cache ไว้จะผิด)
-- **รายงานทีละ 1 cycle** ต่อการตรวจหนึ่งรอบ ถ้ามีหลายวงพร้อมกันจะเห็นแค่วงแรกที่ DFS เจอ
+- **รายงานได้สูงสุด 16 cycle ต่อการตรวจหนึ่งรอบ** (`DD_MAX_CYCLES`) วงที่เกินจะไม่ถูกรายงานในรอบนั้น
+  หน้า playground แสดงรายงานแค่วงสุดท้ายในภาพ (stderr ดิบยังมีครบทุกวง)
 - **ตารางมีขนาดจำกัด** (รอได้ 256 thread · ถือได้ 1024 mutex · รายงาน cycle ได้ยาวสุด 64)
   เต็มแล้วจะเตือนครั้งเดียวและ **อาจตรวจไม่เจอ** deadlock ที่เกี่ยวกับรายการที่บันทึกไม่ได้
   cycle ที่ยาวเกิน 64 แสดงเป็น "(partial path, truncated)"

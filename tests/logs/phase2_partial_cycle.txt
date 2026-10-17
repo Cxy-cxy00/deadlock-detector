@@ -3,13 +3,13 @@
 
 [DEADLOCK DETECTED] 70 threads in cycle (partial path, truncated: แสดง 64)
 
-  Thread 610
+  Thread 1761
       holds   (ไม่ทราบ — อยู่นอกช่วงที่ถูกตัด)
-      waiting mutex 0x64e345f04068   at longcycle.c:7
-  Thread 611
-      holds   mutex 0x64e345f04068   at longcycle.c:7
+      waiting mutex 0x5969fcf8c068   at longcycle.c:7
+  Thread 1762
+      holds   mutex 0x5969fcf8c068   at longcycle.c:7
 ...
- T669 -> T670 -> T671 -> T672 -> T673 -> ... (partial path, truncated)
+0 -> T1821 -> T1822 -> T1823 -> T1824 -> ... (partial path, truncated)
   Hint : acquire locks in a consistent global order
 
   Graph : เขียน /tmp/long.dot แล้ว   (dot -Tpng /tmp/long.dot -o cycle.png)
