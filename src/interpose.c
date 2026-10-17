@@ -22,6 +22,8 @@
  * หมายเหตุ: ไม่ต้อง #define _GNU_SOURCE ที่นี่ — CFLAGS มี -D_GNU_SOURCE แล้ว (Makefile:4)
  */
 #include <dlfcn.h>
+#include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 #include <sys/syscall.h>
 #include "interpose.h"
@@ -60,8 +62,11 @@ dd_site_t dd_site_from_pc(void *pc) {
 /* ---- หาที่อยู่ของฟังก์ชันตัวจริง ----
  * เรียกจาก constructor (detector.c:17) ซึ่งรันก่อน main ตอนที่ยังมี thread เดียว
  *
- * ระวังไก่กับไข่: dlsym อาจเรียก malloc ข้างใน -> malloc เรียก pthread_mutex_lock
- * -> คือตัวเรา -> เราเรียก dlsym อีก -> วนไม่สิ้นสุด  ธง in_dd ตัดวงนี้
+ * ระวังไก่กับไข่: ถ้า dlsym เรียกอะไรที่วนกลับมาที่ pthread_mutex_lock ของเรา
+ * เราจะเรียก dlsym ซ้อนอีก -> วนไม่สิ้นสุด  ธง in_dd ตัดวงนี้
+ * การเรียกซ้อนนั้นจะเจอ real_* เป็น NULL แล้ว abort (ดู die_unresolved)
+ * บน glibc ที่ทดสอบ (2.43, ดู tests/logs/env.txt) dlsym/malloc ใช้ lock ภายในของ glibc เอง
+ * ไม่ผ่าน pthread_mutex_lock จึงไม่เกิดกรณีนี้ — test matrix ผ่านโดยไม่มี abort
  */
 /* ประกาศว่า thread ที่เรียกเป็น thread ภายในของเราเอง (detector)
  * ตั้งธงค้างไว้ถาวร ทุก lock ที่ thread นี้ทำจะผ่านไปตัวจริงโดยไม่ถูกบันทึก
@@ -69,18 +74,57 @@ dd_site_t dd_site_from_pc(void *pc) {
  */
 void dd_interpose_mark_self_internal(void) { in_dd = 1; }
 
+/* ข้อความจาก dlerror() ครั้งล่าสุดที่ resolve ไม่สำเร็จ — เก็บไว้ใน static buffer
+ * เพราะ string ที่ dlerror คืนมาใช้ได้แค่จนกว่าจะเรียก dlerror ครั้งถัดไป (และห้าม malloc)
+ */
+static char g_resolve_err[256];
+
+static dd_mutex_fn_t resolve_one(const char *name) {
+    (void)dlerror();                       /* ล้าง error เก่าก่อน ไม่งั้นแยกไม่ออกว่าของใคร */
+    void *p = dlsym(RTLD_NEXT, name);
+    const char *err = dlerror();           /* NULL = ไม่มี error */
+    if (err != NULL || p == NULL) {
+        const char *msg = (err != NULL) ? err : "dlsym คืน NULL";
+        size_t n = strlen(msg);
+        if (n >= sizeof g_resolve_err) n = sizeof g_resolve_err - 1;
+        memcpy(g_resolve_err, msg, n);
+        g_resolve_err[n] = 0;
+        return NULL;
+    }
+    return (dd_mutex_fn_t)p;
+}
+
 void dd_interpose_resolve(void) {
     if (in_dd) return;
     in_dd = 1;
 
     if (real_mutex_lock == NULL)
-        real_mutex_lock = (dd_mutex_fn_t)dlsym(RTLD_NEXT, "pthread_mutex_lock");
+        real_mutex_lock = resolve_one("pthread_mutex_lock");
     if (real_mutex_trylock == NULL)
-        real_mutex_trylock = (dd_mutex_fn_t)dlsym(RTLD_NEXT, "pthread_mutex_trylock");
+        real_mutex_trylock = resolve_one("pthread_mutex_trylock");
     if (real_mutex_unlock == NULL)
-        real_mutex_unlock = (dd_mutex_fn_t)dlsym(RTLD_NEXT, "pthread_mutex_unlock");
+        real_mutex_unlock = resolve_one("pthread_mutex_unlock");
 
     in_dd = 0;
+}
+
+/* เขียนข้อความตรงด้วย write(2,...) — ห้าม printf/dd_logf ที่นี่
+ * เพราะเราอยู่ในสภาพที่ยังไม่มี mutex ตัวจริงให้ใช้ อะไรที่อาจล็อกข้างในเชื่อไม่ได้ทั้งหมด
+ */
+static void write_err(const char *s) {
+    size_t n = strlen(s);
+    ssize_t w = write(2, s, n);
+    if (w < 0) return;                     /* เขียนไม่ได้ก็ทำอะไรต่อไม่ได้ — กำลังจะ abort อยู่แล้ว */
+}
+
+__attribute__((noreturn))
+static void die_unresolved(const char *name) {
+    write_err("[dd] FATAL: หา ");
+    write_err(name);
+    write_err(" ตัวจริงไม่เจอ (");
+    write_err(g_resolve_err[0] != 0 ? g_resolve_err : "ถูกเรียกซ้อนระหว่าง resolve");
+    write_err(") — ทำต่อโดยไม่ล็อกจริงไม่ได้ จึง abort\n");
+    abort();
 }
 
 /* ==== ฟังก์ชันที่ไปทับของ libc ====
@@ -90,9 +134,10 @@ void dd_interpose_resolve(void) {
  *   2) อยู่ในโค้ดเราเอง (in_dd) -> ผ่านไปตัวจริงเลย ไม่จดอะไร
  *   3) จด -> เรียกตัวจริง -> จด
  *
- * กรณี real_* ยังเป็น NULL หลัง resolve: เกิดได้เฉพาะช่วงบูตที่ dlsym ยังไม่พร้อม
- * ซึ่งแคบมากและเป็น single-thread  เลือก return 0 (ทำเป็นว่าสำเร็จ) เพราะถ้า
- * return error โปรแกรมเป้าหมายจะพังทันที  เป็น wart ที่รู้ตัว — มี dd_dbgf เตือนไว้
+ * กรณี real_* ยังเป็น NULL หลัง resolve: abort ทันที
+ * ทางเลือกอื่นคือ "ทำเป็นว่าสำเร็จ" (return 0) ซึ่งแย่กว่า เพราะโปรแกรมเป้าหมายจะคิดว่า
+ * ได้ lock แล้วทั้งที่ไม่ได้ล็อกจริง -> mutual exclusion เสียแบบเงียบ ๆ
+ * หยุดพร้อมบอกเหตุผลดีกว่าปล่อยให้ข้อมูลเสียโดยไม่มีใครรู้
  */
 
 int pthread_mutex_lock(pthread_mutex_t *m) {
@@ -100,10 +145,7 @@ int pthread_mutex_lock(pthread_mutex_t *m) {
 
     if (real_mutex_lock == NULL) {
         dd_interpose_resolve();
-        if (real_mutex_lock == NULL) {
-            dd_dbgf("BOOTSTRAP lock %p (ยังไม่ resolve)\n", (void *)m);
-            return 0;
-        }
+        if (real_mutex_lock == NULL) die_unresolved("pthread_mutex_lock");
     }
     if (in_dd) return real_mutex_lock(m);
 
@@ -131,10 +173,7 @@ int pthread_mutex_trylock(pthread_mutex_t *m) {
 
     if (real_mutex_trylock == NULL) {
         dd_interpose_resolve();
-        if (real_mutex_trylock == NULL) {
-            dd_dbgf("BOOTSTRAP trylock %p (ยังไม่ resolve)\n", (void *)m);
-            return 0;
-        }
+        if (real_mutex_trylock == NULL) die_unresolved("pthread_mutex_trylock");
     }
     if (in_dd) return real_mutex_trylock(m);
 
@@ -152,10 +191,7 @@ int pthread_mutex_trylock(pthread_mutex_t *m) {
 int pthread_mutex_unlock(pthread_mutex_t *m) {
     if (real_mutex_unlock == NULL) {
         dd_interpose_resolve();
-        if (real_mutex_unlock == NULL) {
-            dd_dbgf("BOOTSTRAP unlock %p (ยังไม่ resolve)\n", (void *)m);
-            return 0;
-        }
+        if (real_mutex_unlock == NULL) die_unresolved("pthread_mutex_unlock");
     }
     if (in_dd) return real_mutex_unlock(m);
 
