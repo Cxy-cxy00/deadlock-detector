@@ -1,4 +1,4 @@
-/* interpose.c — ดัก pthread_mutex_* ด้วย LD_PRELOAD  (ผู้รับผิดชอบ: คนที่ 1)
+/* interpose.c — interpose pthread_mutex_lock / trylock / unlock ด้วย LD_PRELOAD  (ผู้รับผิดชอบ: คนที่ 1)
  *
  * ===== สถานะ: ต่อ state.c เข้ามาแล้ว (ขั้น 3 รอบที่ 2) =====
  * รอบที่ 1 ทำ pass-through ล้วนก่อน เพื่อพิสูจน์ว่าโปรแกรมเป้าหมายทำงานเหมือนเดิมเป๊ะ

@@ -1,7 +1,7 @@
 /* graph.c — wait-for graph และการหา cycle  (ผู้รับผิดชอบ: คนที่ 3)
  *
  * node = thread,  edge T1 -> T2 แปลว่า "T1 รอ mutex ที่ T2 ถืออยู่"
- * มี cycle = เกิด deadlock แล้ว (ตรงตามนิยามในบท Deadlocks)
+ * มี cycle = circular wait ภายใต้ scope ที่รองรับ (NORMAL mutex — ดู Limitations ใน README)
  *
  * ===== ข้อสังเกตสำคัญ: กราฟนี้มี out-degree ไม่เกิน 1 =====
  * thread หนึ่งตัวค้างอยู่ใน pthread_mutex_lock ได้ทีละ "หนึ่ง" mutex เท่านั้น

@@ -1,0 +1,17 @@
+# timeout 15s env LD_PRELOAD="$PWD/build/libdetect.so" ./build/no_deadlock
+# date: 2026-10-17T20:53:43+07:00
+# expect: exit=0 marker=0   got: exit=0 marker=0   => PASS
+---- stdout ----
+no_deadlock: บัญชีเดียวกับ bank.c แต่ล็อกตามลำดับสากล (id)
+             ต้องจบเองภายใน ~2 วินาที และเครื่องมือต้องไม่รายงานอะไร
+
+[t1] โอน alice -> bob 10 รอบ
+[t2] โอน bob -> alice 10 รอบ
+[t1] done
+[t2] done
+
+ยอดคงเหลือ: alice=2000 bob=0 (รวม 2000)
+ใช้เวลา 2004 ms (ต้องไม่น้อยกว่า 1500 ms = 3 คาบของ detector)
+PASS: จบเองไม่ค้าง ยอดรวมถูกต้อง และรันนานพอให้ detector ตรวจหลายคาบ
+---- stderr ----
+---- exit=0 ----

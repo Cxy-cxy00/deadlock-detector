@@ -67,12 +67,14 @@ static int path_is_shell_safe(const char *p) {
  * ทำให้ module ถูกโหลดที่ตำแหน่งสุ่มใหม่ทุกครั้งที่รัน
  *
  * dladdr() บอก base address ที่ module นั้นถูกโหลด (dli_fbase) และชื่อไฟล์ (dli_fname)
- * ลบ base ออกก็ได้ offset ในไฟล์  (ไฟล์ non-PIE จะได้ dli_fbase = 0 สูตรเดียวกันก็ยังถูก)
+ * ลบ base ออกก็ได้ offset ในไฟล์ — ถูกเฉพาะ PIE / shared object
+ * binary แบบ non-PIE มี dli_fbase เป็นที่อยู่โหลดจริง (เช่น 0x400000) offset จึงผิด
+ * addr2line หาไม่เจอ แล้ว print_line ถอยไปแสดง "at pc 0x..." แทน (ข้อจำกัดใน README)
  *
- * ข้อควรระวังที่ยอมรับไว้: popen = fork + exec  การ fork จากโปรเซสที่มีหลาย thread
- * มีความเสี่ยงถ้าบังเอิญมี thread อื่นถือ lock ภายในของ libc อยู่พอดีตอน fork
- * ในที่นี้ความเสี่ยงต่ำเพราะ thread ที่ค้างอยู่ค้างใน futex ของ mutex ไม่ได้อยู่ใน malloc
- * และเรา resolve แค่ตอนรายงาน (ครั้งเดียวต่อหนึ่ง cycle) ไม่ใช่ทุกครั้งที่ล็อก
+ * ข้อควรระวังที่ยอมรับไว้: glibc รุ่นใหม่ทำ popen ด้วย posix_spawn (child exec ทันที)
+ * จึงไม่มีปัญหา fork แล้ว child ไปเจอ lock ภายในที่ค้างอยู่  แต่ตัว popen เองยังเรียก
+ * malloc และ lock ภายในของ stdio  ความเสี่ยงต่ำเพราะ thread ที่ค้างอยู่ค้างใน futex
+ * ของ mutex ไม่ได้อยู่ใน malloc และเรา resolve แค่ตอนรายงาน (ครั้งเดียวต่อหนึ่ง cycle)
  */
 void dd_report_resolve_site(dd_site_t *site) {
     Dl_info       info;

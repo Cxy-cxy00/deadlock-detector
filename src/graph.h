@@ -1,7 +1,7 @@
 /* graph.h — wait-for graph และการหา cycle  (ผู้รับผิดชอบ: คนที่ 3)
  *
  * node = thread,  edge T1 -> T2 = "T1 รอ mutex ที่ T2 ถืออยู่"
- * มี cycle = เกิด deadlock แล้ว (ตรงตามบท Deadlocks)
+ * มี cycle = circular wait ภายใต้ scope ที่รองรับ (NORMAL mutex — ดู Limitations ใน README)
  */
 #ifndef DD_GRAPH_H
 #define DD_GRAPH_H
