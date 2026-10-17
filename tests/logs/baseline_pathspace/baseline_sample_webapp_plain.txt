@@ -1,0 +1,13 @@
+# timeout 5s ./build/sample_webapp
+# date: 2026-10-17T20:21:29+07:00
+# expect: exit=124 marker=0   got: exit=124 marker=0   => PASS
+---- stdout ----
+sample_webapp: จำลองเซิร์ฟเวอร์ที่มี worker กับตัวเก็บสถิติ
+               ถ้าเงียบไปเกิน 1 วินาที = ค้างแล้ว
+
+  [worker]  จอง connection แล้ว (active=1)
+  [metrics] อ่านตัวนับแล้ว (requests=0)
+  [worker]  ขอ lock ของ stats เพื่อบวกตัวนับ ...
+  [metrics] ขอ lock ของ pool เพื่อดูจำนวน connection ...
+---- stderr ----
+---- exit=124 ----

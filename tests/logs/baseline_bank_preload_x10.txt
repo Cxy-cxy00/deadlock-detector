@@ -1,0 +1,11 @@
+run 1: exit=124 hit
+run 2: exit=124 hit
+run 3: exit=124 hit
+run 4: exit=124 hit
+run 5: exit=124 hit
+run 6: exit=124 hit
+run 7: exit=124 hit
+run 8: exit=124 hit
+run 9: exit=124 hit
+run 10: exit=124 hit
+bank preload: 10/10 runs reported [DEADLOCK DETECTED]

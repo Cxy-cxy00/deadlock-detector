@@ -10,7 +10,7 @@ BUILD    := build
 SRC      := $(wildcard src/*.c)
 OBJ      := $(patsubst src/%.c,$(BUILD)/%.o,$(SRC))
 LIB      := $(BUILD)/libdetect.so
-TESTS    := $(BUILD)/bank $(BUILD)/no_deadlock
+TESTS    := $(BUILD)/bank $(BUILD)/no_deadlock $(BUILD)/sample_webapp
 
 .PHONY: all tests clean demo playground
 all: $(LIB) tests
