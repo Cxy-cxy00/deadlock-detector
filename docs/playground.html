@@ -511,21 +511,22 @@ int main(void) {
     {
       name: "ordered — เวอร์ชันที่แก้แล้ว (ต้องไม่มีรายงาน)",
       code: String.raw`/* โค้ดเดียวกับ bank ทุกอย่าง หน่วงเวลาเท่ากันเป๊ะ
- * ต่างแค่ล็อกตามลำดับสากลเสมอ (เรียงตามที่อยู่ของตัวแปร)
+ * ต่างแค่ล็อกตามลำดับสากลเสมอ (เรียงตาม id ของบัญชี)
  * -> ทำลายเงื่อนไข circular wait ของ Coffman = จบเองไม่ค้าง
+ * (ไม่เทียบ pointer ของ object คนละตัวด้วย < เพราะเป็น undefined behavior ใน ISO C)
  */
 #define _DEFAULT_SOURCE
 #include <pthread.h>
 #include <stdio.h>
 #include <unistd.h>
 
-typedef struct { long balance; pthread_mutex_t lock; } account_t;
-static account_t alice = { 1000, PTHREAD_MUTEX_INITIALIZER };
-static account_t bob   = { 1000, PTHREAD_MUTEX_INITIALIZER };
+typedef struct { int id; long balance; pthread_mutex_t lock; } account_t;
+static account_t alice = { 1, 1000, PTHREAD_MUTEX_INITIALIZER };
+static account_t bob   = { 2, 1000, PTHREAD_MUTEX_INITIALIZER };
 
 static void transfer(account_t *from, account_t *to, long amount) {
-    account_t *first  = (from < to) ? from : to;
-    account_t *second = (from < to) ? to   : from;
+    account_t *first  = (from->id < to->id) ? from : to;
+    account_t *second = (from->id < to->id) ? to   : from;
     pthread_mutex_lock(&first->lock);
     usleep(100000);
     pthread_mutex_lock(&second->lock);
