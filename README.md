@@ -135,6 +135,7 @@ docs/
   banker.html      ซิมูเลเตอร์ Banker's Algorithm — deadlock avoidance
   playground.html  หน้าเครื่องมือ — แนบไฟล์ C หรือวางโค้ดแล้วกดรันได้จริง
   design.md        บันทึกการออกแบบและข้อจำกัด
+  fix-report.md    รายงานการแก้ Phase 0-4.1: เจออะไร ทำอะไร หลักฐานอยู่ไหน
 tools/
   playground.py    เซิร์ฟเวอร์ท้องถิ่นที่ compile + รันโค้ดให้หน้า playground
 ```
