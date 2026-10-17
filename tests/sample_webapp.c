@@ -15,7 +15,9 @@
  *
  * แต่ละฟังก์ชันอ่านแยกกันดูสมเหตุสมผลทั้งคู่ ความผิดเกิดตอนรันพร้อมกันเท่านั้น
  * และจะโผล่เฉพาะตอนจังหวะพอดี ซึ่งในของจริงแปลว่า "เซิร์ฟเวอร์ค้างสัปดาห์ละครั้ง
- * ทำซ้ำไม่ได้ หาไม่เจอ"  ที่นี่ใส่ usleep ไว้บังคับให้เกิดทุกครั้ง
+ * ทำซ้ำไม่ได้ หาไม่เจอ"  ที่นี่ใส่ pthread_barrier (count = 2) ไว้หลัง lock ตัวแรก
+ * บังคับให้ทั้งสองฝั่งถือ lock ตัวแรกครบก่อนไปขอตัวที่สอง จึงค้างทุกครั้ง
+ * (usleep แค่ "น่าจะ" นานพอ ไม่รับประกัน — barrier รับประกันได้จริง)
  *
  * วิธีใช้
  *   1. เปิด http://127.0.0.1:8000  (สั่ง make playground ก่อน)
@@ -28,9 +30,8 @@
 #define _DEFAULT_SOURCE
 #include <pthread.h>
 #include <stdio.h>
-#include <unistd.h>
-
-#define SLOW_WORK_US 120000   /* 120 ms — แทนงานที่ใช้เวลาจริง เช่น query ฐานข้อมูล */
+#include <stdlib.h>
+#include <string.h>
 
 /* ---- ของใช้ร่วมกันสองอย่าง แต่ละอันมี mutex ของตัวเอง ---- */
 
@@ -54,6 +55,24 @@ static struct server_stats stats = {
     .lock = PTHREAD_MUTEX_INITIALIZER, .requests = 0, .errors = 0
 };
 
+/* แทน "งานที่ใช้เวลา" — ทั้งสองฝั่งต้องถือ lock ตัวแรกครบก่อน ถึงจะไปต่อได้ */
+static pthread_barrier_t both_hold_first;
+
+/* pthread_* คืน error number โดยตรง ไม่ได้ตั้ง errno */
+static void die(const char *what, int err)
+{
+    fprintf(stderr, "sample_webapp: %s: %s\n", what, strerror(err));
+    exit(2);
+}
+
+static void slow_work(void)
+{
+    int rc = pthread_barrier_wait(&both_hold_first);
+    /* thread หนึ่งตัวจะได้ PTHREAD_BARRIER_SERIAL_THREAD แทน 0 — ไม่ใช่ error */
+    if (rc != 0 && rc != PTHREAD_BARRIER_SERIAL_THREAD)
+        die("pthread_barrier_wait", rc);
+}
+
 /* ================================================================
  * ฝั่ง worker — รับ request เข้ามาแล้วอัปเดตสถิติ
  * ลำดับที่ใช้:  pool -> stats
@@ -65,7 +84,7 @@ static void handle_request(void)
     printf("  [worker]  จอง connection แล้ว (active=%d)\n", pool.active);
     fflush(stdout);
 
-    usleep(SLOW_WORK_US);                    /* ทำงานจริง เช่น query ฐานข้อมูล */
+    slow_work();                             /* ทำงานจริง เช่น query ฐานข้อมูล */
 
     printf("  [worker]  ขอ lock ของ stats เพื่อบวกตัวนับ ...\n");
     fflush(stdout);
@@ -88,7 +107,7 @@ static void report_metrics(void)
     printf("  [metrics] อ่านตัวนับแล้ว (requests=%ld)\n", seen);
     fflush(stdout);
 
-    usleep(SLOW_WORK_US);                    /* จัดรูปแบบข้อความรายงาน */
+    slow_work();                             /* จัดรูปแบบข้อความรายงาน */
 
     printf("  [metrics] ขอ lock ของ pool เพื่อดูจำนวน connection ...\n");
     fflush(stdout);
@@ -123,10 +142,14 @@ static void *metrics_thread(void *arg)
 int main(void)
 {
     pthread_t worker, metrics;
+    int rc;
 
     printf("sample_webapp: จำลองเซิร์ฟเวอร์ที่มี worker กับตัวเก็บสถิติ\n");
     printf("               ถ้าเงียบไปเกิน 1 วินาที = ค้างแล้ว\n\n");
     fflush(stdout);
+
+    rc = pthread_barrier_init(&both_hold_first, NULL, 2);
+    if (rc != 0) die("pthread_barrier_init", rc);
 
     pthread_create(&worker, NULL, worker_thread, NULL);
     pthread_create(&metrics, NULL, metrics_thread, NULL);
@@ -134,7 +157,9 @@ int main(void)
     pthread_join(worker, NULL);
     pthread_join(metrics, NULL);
 
-    /* สองบรรทัดนี้จะถูกพิมพ์ก็ต่อเมื่อ deadlock ไม่เกิด */
+    /* ส่วนนี้จะทำงานก็ต่อเมื่อ deadlock ไม่เกิด */
+    rc = pthread_barrier_destroy(&both_hold_first);
+    if (rc != 0) die("pthread_barrier_destroy", rc);
     printf("\nจบงานทั้งหมด requests=%ld errors=%ld\n", stats.requests, stats.errors);
     return 0;
 }

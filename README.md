@@ -115,7 +115,8 @@ src/
   detector.c/h   detector thread + lock-order inversion      — คนที่ 4
   report.c/h     รายงาน + export Graphviz + map file:line    — คนที่ 5
 tests/
-  bank.c         โปรแกรมโอนเงินที่ deadlock แน่นอน
+  bank.c         โปรแกรมโอนเงินที่ deadlock ทุกครั้ง — pthread_barrier บังคับให้ทั้งสอง thread
+                 ถือ lock ตัวแรกครบก่อนไปขอตัวที่สอง (ไม่ได้พึ่งจังหวะ sleep)
   no_deadlock.c  เวอร์ชันล็อกตามลำดับ ใช้เช็ค false positive
   run_demo.sh    ลำดับขั้นตอน demo ตอนนำเสนอ
 docs/
