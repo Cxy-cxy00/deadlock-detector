@@ -204,6 +204,15 @@ bash tests/run_demo.sh --no-pause # รันรวดเดียว — exit 0
 - `run_demo.sh --no-pause` ผ่านทุกขั้น และคืน exit 1 จริงเมื่อชี้ไปที่ .so ที่ไม่มีอยู่
   ([`phase2_run_demo_*.txt`](tests/logs/))
 - cycle 70 thread รายงานเป็น partial path ไม่ปิดวงปลอม ([`phase2_partial_cycle.txt`](tests/logs/phase2_partial_cycle.txt))
+- overhead (`make bench`, i9-13900H บน WSL2, median 15 รอบ × 1,000,000 คู่ lock+unlock —
+  [`bench.txt`](tests/logs/bench.txt))
+
+  | กรณี | ไม่มี LD_PRELOAD | มี LD_PRELOAD | เพิ่มขึ้น |
+  | --- | --- | --- | --- |
+  | uncontended (1 thread) | 2.3 ns/คู่ | 72.8 ns/คู่ | +70.5 ns (×31.7) |
+  | contended (4 thread, 1 mutex) | 38.7 ns/คู่ | 296.1 ns/คู่ | +257.4 ns (×7.7) |
+
+  ทุก lock/unlock ต้องผ่านตารางที่มี lock ตัวเดียว จึงช้าลงชัดเจน เหมาะกับการ debug ไม่ใช่เปิดทิ้งไว้ใน production
 
 ## แบ่งงาน
 
