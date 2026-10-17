@@ -22,6 +22,7 @@
  * หมายเหตุ: ไม่ต้อง #define _GNU_SOURCE ที่นี่ — CFLAGS มี -D_GNU_SOURCE แล้ว (Makefile:4)
  */
 #include <dlfcn.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -140,6 +141,14 @@ static void die_unresolved(const char *name) {
  * หยุดพร้อมบอกเหตุผลดีกว่าปล่อยให้ข้อมูลเสียโดยไม่มีใครรู้
  */
 
+/* robust mutex: เจ้าของเดิมตายขณะถือ lock -> คืน EOWNERDEAD แต่ "ได้ lock มาแล้ว"
+ * (ผู้เรียกต้องเรียก pthread_mutex_consistent ต่อ) จึงต้องจดว่าถืออยู่เหมือน rc == 0
+ * ไม่งั้นตารางจะไม่รู้ว่ามีเจ้าของ แล้วตรวจ cycle ที่ผ่าน mutex ตัวนี้ไม่เจอ
+ */
+static int lock_was_acquired(int rc) {
+    return rc == 0 || rc == EOWNERDEAD;
+}
+
 int pthread_mutex_lock(pthread_mutex_t *m) {
     void *pc = __builtin_return_address(0);   /* ที่อยู่ในโปรแกรมเป้าหมาย */
 
@@ -161,7 +170,7 @@ int pthread_mutex_lock(pthread_mutex_t *m) {
     /* ต้องเรียก wait_end แม้ rc != 0 ไม่งั้นมี wait edge ผีค้างในตาราง
      * -> detector จะรายงาน deadlock ที่ไม่มีจริง */
     dd_state_wait_end(dd_self(), m);
-    if (rc == 0) dd_state_acquired(dd_self(), m, dd_site_from_pc(pc));
+    if (lock_was_acquired(rc)) dd_state_acquired(dd_self(), m, dd_site_from_pc(pc));
     dd_dbgf("locked  %p tid=%lu rc=%d\n", (void *)m, dd_self(), rc);
     in_dd = 0;
 
@@ -181,7 +190,7 @@ int pthread_mutex_trylock(pthread_mutex_t *m) {
     int rc = real_mutex_trylock(m);
 
     in_dd = 1;
-    if (rc == 0) dd_state_acquired(dd_self(), m, dd_site_from_pc(pc));
+    if (lock_was_acquired(rc)) dd_state_acquired(dd_self(), m, dd_site_from_pc(pc));
     dd_dbgf("trylock %p tid=%lu rc=%d pc=%p\n", (void *)m, dd_self(), rc, pc);
     in_dd = 0;
 
