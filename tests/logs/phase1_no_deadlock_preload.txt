@@ -1,0 +1,16 @@
+# timeout 15s env LD_PRELOAD="$PWD/build/libdetect.so" ./build/no_deadlock
+# date: 2026-10-17T20:33:20+07:00
+# expect: exit=0 marker=0   got: exit=0 marker=0   => PASS
+---- stdout ----
+no_deadlock: โค้ดเดียวกับ bank.c แต่ล็อกตามลำดับสากล
+             ต้องจบเองภายใน ~1 วินาที และเครื่องมือต้องไม่รายงานอะไร
+
+[t1] โอน alice -> bob
+[t2] โอน bob -> alice
+[t1] done
+[t2] done
+
+ยอดคงเหลือ: alice=1100 bob=900 (รวม 2000)
+PASS: จบเองไม่ค้าง และยอดรวมถูกต้อง
+---- stderr ----
+---- exit=0 ----

@@ -1,0 +1,13 @@
+# timeout 5s ./build/bank
+# date: 2026-10-17T20:33:14+07:00
+# expect: exit=124 marker=0   got: exit=124 marker=0   => PASS
+---- stdout ----
+bank: โอนเงินสองทิศทางพร้อมกัน
+      เงียบไปเกิน 1 วินาที = deadlock แล้ว (Ctrl-C เพื่อออก)
+
+[t1] lock alice
+[t2] lock bob
+[t2] lock alice ...
+[t1] lock bob ...
+---- stderr ----
+---- exit=124 ----
