@@ -1,0 +1,21 @@
+# 70-thread cycle (ad-hoc, เกิน DD_MAX_CYCLE_LEN=64) — ตรวจว่า report/DOT ไม่ปิดวงปลอม
+---- stderr (ตัดแค่หัว/ท้าย) ----
+
+[DEADLOCK DETECTED] 70 threads in cycle (partial path, truncated: แสดง 64)
+
+  Thread 610
+      holds   (ไม่ทราบ — อยู่นอกช่วงที่ถูกตัด)
+      waiting mutex 0x64e345f04068   at longcycle.c:7
+  Thread 611
+      holds   mutex 0x64e345f04068   at longcycle.c:7
+...
+ T669 -> T670 -> T671 -> T672 -> T673 -> ... (partial path, truncated)
+  Hint : acquire locks in a consistent global order
+
+  Graph : เขียน /tmp/long.dot แล้ว   (dot -Tpng /tmp/long.dot -o cycle.png)
+---- dot (ท้ายไฟล์) ----
+  M62 -> T63 [label="held by"];
+  T63 -> M63 [color=red, label=waiting];
+  more [shape=plaintext, label="... (partial path, truncated)"];
+  M63 -> more [style=dashed, label="held by"];
+}

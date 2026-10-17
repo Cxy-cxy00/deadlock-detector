@@ -127,10 +127,17 @@ int dd_graph_find_cycle(dd_cycle_t *out) {
                 start++;
 
             size_t len = plen - start;
+            out->full_len = len;
+            out->partial  = 0;
             if (len > DD_MAX_CYCLE_LEN) {
-                dd_logf("[dd] WARNING: cycle ยาว %zu เกิน DD_MAX_CYCLE_LEN (%d) "
-                        "— รายงานแค่บางส่วน\n", len, DD_MAX_CYCLE_LEN);
+                /* เก็บได้แค่ช่วงแรก — ตั้ง partial ไว้ให้ report/DOT ไม่วาดลูกศรปิดวงปลอม
+                 * ใช้ dd_dbgf: ฟังก์ชันนี้ถูกเรียกทุกคาบ ถ้าใช้ dd_logf จะเตือนซ้ำทุก 500 ms
+                 * ส่วนรายงาน (พิมพ์ครั้งเดียวต่อวง) บอกเรื่องถูกตัดไว้แล้วในหัวรายงาน
+                 */
+                dd_dbgf("graph: cycle ยาว %zu เกิน DD_MAX_CYCLE_LEN (%d) "
+                        "— เก็บแค่บางส่วน\n", len, DD_MAX_CYCLE_LEN);
                 len = DD_MAX_CYCLE_LEN;
+                out->partial = 1;
             }
 
             for (size_t k = 0; k < len; k++) {

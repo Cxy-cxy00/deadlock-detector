@@ -8,6 +8,7 @@
 #include <dlfcn.h>    /* dladdr */
 #include <stdio.h>    /* snprintf, popen */
 #include <stdlib.h>   /* atoi */
+#include <string.h>   /* strlen */
 #include <stdarg.h>   /* va_list ของ dot_emit */
 #include <fcntl.h>    /* open */
 #include <unistd.h>   /* write, close */
@@ -173,29 +174,55 @@ void dd_report_cycle(const dd_cycle_t *c) {
          * ดังนั้น tids[i] ย่อมถือ mutexes[i-1] คือตัวที่คนก่อนหน้าในวงกำลังรออยู่
          */
         row[i].waiting = c->mutexes[i];
-        row[i].held    = c->mutexes[(i + c->len - 1) % c->len];
 
-        s = site_of_hold(row[i].held);
-        row[i].hold_site = (s != NULL) ? *s : empty;
+        /* partial: คนก่อนหน้า tids[0] ในวงถูกตัดทิ้งไป จึงไม่รู้ว่า tids[0] ถือตัวไหน
+         * (mutexes[len-1] คือตัวที่ tids[len-1] รอ ซึ่งถือโดย thread ที่ถูกตัด ไม่ใช่ tids[0])
+         */
+        if (c->partial && i == 0) {
+            row[i].held      = NULL;
+            row[i].hold_site = empty;
+        } else {
+            row[i].held = c->mutexes[(i + c->len - 1) % c->len];
+            s = site_of_hold(row[i].held);
+            row[i].hold_site = (s != NULL) ? *s : empty;
+        }
         s = site_of_wait(c->tids[i]);
         row[i].wait_site = (s != NULL) ? *s : empty;
     }
     dd_state_unlock();
 
-    dd_logf("\n[DEADLOCK DETECTED] %zu threads in cycle\n\n", c->len);
+    if (c->partial)
+        dd_logf("\n[DEADLOCK DETECTED] %zu threads in cycle "
+                "(partial path, truncated: แสดง %zu)\n\n", c->full_len, c->len);
+    else
+        dd_logf("\n[DEADLOCK DETECTED] %zu threads in cycle\n\n", c->len);
     for (i = 0; i < c->len; i++) {
         dd_logf("  Thread %lu\n", c->tids[i]);
-        print_line("holds",   row[i].held,    &row[i].hold_site);
+        if (row[i].held != NULL)
+            print_line("holds", row[i].held, &row[i].hold_site);
+        else
+            dd_logf("      holds   (ไม่ทราบ — อยู่นอกช่วงที่ถูกตัด)\n");
         print_line("waiting", row[i].waiting, &row[i].wait_site);
     }
 
-    /* ประกอบบรรทัด Cycle ในบัฟเฟอร์เดียวแล้วพิมพ์ทีเดียว จะได้ไม่ถูกแทรกกลาง */
+    /* ประกอบบรรทัด Cycle ในบัฟเฟอร์เดียวแล้วพิมพ์ทีเดียว จะได้ไม่ถูกแทรกกลาง
+     * partial: จบด้วย "..." แทนการวนกลับ T0 — ห้ามปิดวงที่ไม่มีจริง
+     */
     off = snprintf(buf, sizeof buf, "\n  Cycle: ");
     for (i = 0; i < c->len && off > 0 && off < (int)sizeof buf; i++)
         off += snprintf(buf + off, sizeof buf - (size_t)off, "T%lu -> ", c->tids[i]);
-    if (off > 0 && off < (int)sizeof buf)
-        snprintf(buf + off, sizeof buf - (size_t)off, "T%lu\n", c->tids[0]);
-    dd_logf("%s", buf);
+    if (off > 0 && off < (int)sizeof buf) {
+        if (c->partial)
+            snprintf(buf + off, sizeof buf - (size_t)off,
+                     "... (partial path, truncated)\n");
+        else
+            snprintf(buf + off, sizeof buf - (size_t)off, "T%lu\n", c->tids[0]);
+    }
+    /* วงยาว ๆ ทำให้บรรทัดนี้ยาวเกิน buffer 512 ของ dd_logf (log.c) แล้วถูกตัดท้ายทิ้ง
+     * จึงทยอยพิมพ์ทีละช่วง  ตอนนี้ thread ของเป้าหมายค้างกันหมดแล้ว จึงไม่มีใครมาแทรกกลาง
+     */
+    for (size_t pos = 0, n = strlen(buf); pos < n; pos += 400)
+        dd_logf("%.*s", (int)(n - pos < 400 ? n - pos : 400), buf + pos);
 
     dd_logf("  Hint : acquire locks in a consistent global order\n\n");
 }
@@ -258,7 +285,11 @@ void dd_report_dot(const dd_cycle_t *c, const char *path) {
     dot_emit(fd, "digraph deadlock {");
     dot_emit(fd, "  rankdir=LR;");
     dot_emit(fd, "  labelloc=t;");
-    dot_emit(fd, "  label=%cDEADLOCK: %zu threads in cycle%c;", DQ, c->len, DQ);
+    if (c->partial)
+        dot_emit(fd, "  label=%cDEADLOCK: %zu threads in cycle "
+                     "(partial path, truncated: แสดง %zu)%c;", DQ, c->full_len, c->len, DQ);
+    else
+        dot_emit(fd, "  label=%cDEADLOCK: %zu threads in cycle%c;", DQ, c->len, DQ);
     dot_emit(fd, "  node [fontname=monospace];");
     dot_emit(fd, "  edge [fontname=monospace, fontsize=10];");
     dot_blank(fd);
@@ -274,7 +305,16 @@ void dd_report_dot(const dd_cycle_t *c, const char *path) {
     for (i = 0; i < c->len; i++) {
         /* tids[i] กำลังขอ mutexes[i] */
         dot_emit(fd, "  T%zu -> M%zu [color=red, label=waiting];", i, i);
-        /* mutexes[i] ถือโดย tids[i+1] — เส้นนี้คือตัวปิดวงให้ครบรอบ */
+        /* partial: mutex ตัวสุดท้ายถือโดย thread ที่ถูกตัดทิ้ง ไม่ใช่ T0
+         * ชี้ไปที่ node "..." แทน ห้ามวาดเส้นปิดวงปลอม
+         */
+        if (c->partial && i + 1 == c->len) {
+            dot_emit(fd, "  more [shape=plaintext, label=%c... (partial path, truncated)%c];",
+                     DQ, DQ);
+            dot_emit(fd, "  M%zu -> more [style=dashed, label=%cheld by%c];", i, DQ, DQ);
+            continue;
+        }
+        /* mutexes[i] ถือโดย tids[i+1] — เส้นสุดท้ายคือตัวปิดวงให้ครบรอบ */
         dot_emit(fd, "  M%zu -> T%zu [label=%cheld by%c];",
                  i, (i + 1) % c->len, DQ, DQ);
     }
