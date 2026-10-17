@@ -9,6 +9,7 @@
  * กันไม่ให้ตัวเองโผล่ไปเป็น node ในกราฟที่กำลังตรวจอยู่
  */
 #include <pthread.h>
+#include <stdatomic.h>
 #include <time.h>
 #include "detector.h"
 #include "interpose.h"
@@ -23,7 +24,11 @@
 
 static pthread_t    g_thread;
 static int          g_running = 0;
-static volatile int g_stop    = 0;
+
+/* destructor (main thread) เขียน, detector thread อ่าน — ต้องเป็น atomic
+ * volatile แค่กัน compiler cache ค่า ไม่ใช่ synchronization ตาม C11 จึงยังเป็น data race
+ */
+static atomic_int   g_stop    = 0;
 
 /* cycle ที่รายงานไปแล้ว — ไม่งั้นจะพิมพ์ซ้ำทุกคาบจนจอท่วม
  * (ปิดคำถามข้อสุดท้ายใน docs/design.md: เลือกพิมพ์ครั้งเดียวต่อหนึ่ง cycle)
@@ -75,13 +80,13 @@ static void *detector_main(void *arg) {
 
     dd_dbgf("detector: เริ่มทำงาน ตรวจทุก %d ms\n", DD_CHECK_INTERVAL_MS);
 
-    while (!g_stop) {
-        for (int slept = 0; slept < DD_CHECK_INTERVAL_MS && !g_stop;
+    while (!atomic_load(&g_stop)) {
+        for (int slept = 0; slept < DD_CHECK_INTERVAL_MS && !atomic_load(&g_stop);
              slept += DD_SLEEP_CHUNK_MS) {
             struct timespec ts = { 0, (long)DD_SLEEP_CHUNK_MS * 1000000L };
             nanosleep(&ts, NULL);
         }
-        if (g_stop) break;
+        if (atomic_load(&g_stop)) break;
         dd_detector_check_once();
     }
 
@@ -91,7 +96,7 @@ static void *detector_main(void *arg) {
 
 void dd_detector_start(void) {
     if (g_running) return;
-    g_stop = 0;
+    atomic_store(&g_stop, 0);
     if (pthread_create(&g_thread, NULL, detector_main, NULL) != 0) {
         dd_logf("[dd] WARNING: สร้าง detector thread ไม่สำเร็จ "
                 "— จะไม่มีการตรวจ deadlock\n");
@@ -102,7 +107,7 @@ void dd_detector_start(void) {
 
 void dd_detector_stop(void) {
     if (!g_running) return;
-    g_stop = 1;
+    atomic_store(&g_stop, 1);
     pthread_join(g_thread, NULL);
     g_running = 0;
 }
