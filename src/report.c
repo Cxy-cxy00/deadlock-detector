@@ -8,6 +8,7 @@
 #include <dlfcn.h>    /* dladdr */
 #include <stdio.h>    /* snprintf, popen */
 #include <stdlib.h>   /* atoi */
+#include <string.h>   /* strlen */
 #include <stdarg.h>   /* va_list ของ dot_emit */
 #include <fcntl.h>    /* open */
 #include <unistd.h>   /* write, close */
@@ -66,12 +67,14 @@ static int path_is_shell_safe(const char *p) {
  * ทำให้ module ถูกโหลดที่ตำแหน่งสุ่มใหม่ทุกครั้งที่รัน
  *
  * dladdr() บอก base address ที่ module นั้นถูกโหลด (dli_fbase) และชื่อไฟล์ (dli_fname)
- * ลบ base ออกก็ได้ offset ในไฟล์  (ไฟล์ non-PIE จะได้ dli_fbase = 0 สูตรเดียวกันก็ยังถูก)
+ * ลบ base ออกก็ได้ offset ในไฟล์ — ถูกเฉพาะ PIE / shared object
+ * binary แบบ non-PIE มี dli_fbase เป็นที่อยู่โหลดจริง (เช่น 0x400000) offset จึงผิด
+ * addr2line หาไม่เจอ แล้ว print_line ถอยไปแสดง "at pc 0x..." แทน (ข้อจำกัดใน README)
  *
- * ข้อควรระวังที่ยอมรับไว้: popen = fork + exec  การ fork จากโปรเซสที่มีหลาย thread
- * มีความเสี่ยงถ้าบังเอิญมี thread อื่นถือ lock ภายในของ libc อยู่พอดีตอน fork
- * ในที่นี้ความเสี่ยงต่ำเพราะ thread ที่ค้างอยู่ค้างใน futex ของ mutex ไม่ได้อยู่ใน malloc
- * และเรา resolve แค่ตอนรายงาน (ครั้งเดียวต่อหนึ่ง cycle) ไม่ใช่ทุกครั้งที่ล็อก
+ * ข้อควรระวังที่ยอมรับไว้: glibc รุ่นใหม่ทำ popen ด้วย posix_spawn (child exec ทันที)
+ * จึงไม่มีปัญหา fork แล้ว child ไปเจอ lock ภายในที่ค้างอยู่  แต่ตัว popen เองยังเรียก
+ * malloc และ lock ภายในของ stdio  ความเสี่ยงต่ำเพราะ thread ที่ค้างอยู่ค้างใน futex
+ * ของ mutex ไม่ได้อยู่ใน malloc และเรา resolve แค่ตอนรายงาน (ครั้งเดียวต่อหนึ่ง cycle)
  */
 void dd_report_resolve_site(dd_site_t *site) {
     Dl_info       info;
@@ -173,29 +176,55 @@ void dd_report_cycle(const dd_cycle_t *c) {
          * ดังนั้น tids[i] ย่อมถือ mutexes[i-1] คือตัวที่คนก่อนหน้าในวงกำลังรออยู่
          */
         row[i].waiting = c->mutexes[i];
-        row[i].held    = c->mutexes[(i + c->len - 1) % c->len];
 
-        s = site_of_hold(row[i].held);
-        row[i].hold_site = (s != NULL) ? *s : empty;
+        /* partial: คนก่อนหน้า tids[0] ในวงถูกตัดทิ้งไป จึงไม่รู้ว่า tids[0] ถือตัวไหน
+         * (mutexes[len-1] คือตัวที่ tids[len-1] รอ ซึ่งถือโดย thread ที่ถูกตัด ไม่ใช่ tids[0])
+         */
+        if (c->partial && i == 0) {
+            row[i].held      = NULL;
+            row[i].hold_site = empty;
+        } else {
+            row[i].held = c->mutexes[(i + c->len - 1) % c->len];
+            s = site_of_hold(row[i].held);
+            row[i].hold_site = (s != NULL) ? *s : empty;
+        }
         s = site_of_wait(c->tids[i]);
         row[i].wait_site = (s != NULL) ? *s : empty;
     }
     dd_state_unlock();
 
-    dd_logf("\n[DEADLOCK DETECTED] %zu threads in cycle\n\n", c->len);
+    if (c->partial)
+        dd_logf("\n[DEADLOCK DETECTED] %zu threads in cycle "
+                "(partial path, truncated: แสดง %zu)\n\n", c->full_len, c->len);
+    else
+        dd_logf("\n[DEADLOCK DETECTED] %zu threads in cycle\n\n", c->len);
     for (i = 0; i < c->len; i++) {
         dd_logf("  Thread %lu\n", c->tids[i]);
-        print_line("holds",   row[i].held,    &row[i].hold_site);
+        if (row[i].held != NULL)
+            print_line("holds", row[i].held, &row[i].hold_site);
+        else
+            dd_logf("      holds   (ไม่ทราบ — อยู่นอกช่วงที่ถูกตัด)\n");
         print_line("waiting", row[i].waiting, &row[i].wait_site);
     }
 
-    /* ประกอบบรรทัด Cycle ในบัฟเฟอร์เดียวแล้วพิมพ์ทีเดียว จะได้ไม่ถูกแทรกกลาง */
+    /* ประกอบบรรทัด Cycle ในบัฟเฟอร์เดียวแล้วพิมพ์ทีเดียว จะได้ไม่ถูกแทรกกลาง
+     * partial: จบด้วย "..." แทนการวนกลับ T0 — ห้ามปิดวงที่ไม่มีจริง
+     */
     off = snprintf(buf, sizeof buf, "\n  Cycle: ");
     for (i = 0; i < c->len && off > 0 && off < (int)sizeof buf; i++)
         off += snprintf(buf + off, sizeof buf - (size_t)off, "T%lu -> ", c->tids[i]);
-    if (off > 0 && off < (int)sizeof buf)
-        snprintf(buf + off, sizeof buf - (size_t)off, "T%lu\n", c->tids[0]);
-    dd_logf("%s", buf);
+    if (off > 0 && off < (int)sizeof buf) {
+        if (c->partial)
+            snprintf(buf + off, sizeof buf - (size_t)off,
+                     "... (partial path, truncated)\n");
+        else
+            snprintf(buf + off, sizeof buf - (size_t)off, "T%lu\n", c->tids[0]);
+    }
+    /* วงยาว ๆ ทำให้บรรทัดนี้ยาวเกิน buffer 512 ของ dd_logf (log.c) แล้วถูกตัดท้ายทิ้ง
+     * จึงทยอยพิมพ์ทีละช่วง  ตอนนี้ thread ของเป้าหมายค้างกันหมดแล้ว จึงไม่มีใครมาแทรกกลาง
+     */
+    for (size_t pos = 0, n = strlen(buf); pos < n; pos += 400)
+        dd_logf("%.*s", (int)(n - pos < 400 ? n - pos : 400), buf + pos);
 
     dd_logf("  Hint : acquire locks in a consistent global order\n\n");
 }
@@ -241,11 +270,54 @@ static void dot_blank(int fd) {
     if (write(fd, &nl, 1) < 0) return;
 }
 
-void dd_report_dot(const dd_cycle_t *c, const char *path) {
-    int    fd;
+/* ข้อความหัวของหนึ่งวง ใช้ทั้งเป็น label ของทั้งกราฟ (วงเดียว) และของ cluster (หลายวง) */
+static void cycle_title(const dd_cycle_t *c, char *buf, size_t size) {
+    if (c->partial)
+        snprintf(buf, size, "DEADLOCK: %zu threads in cycle (partial path, truncated: แสดง %zu)",
+                 c->full_len, c->len);
+    else
+        snprintf(buf, size, "DEADLOCK: %zu threads in cycle", c->len);
+}
+
+/* วาดหนึ่งวง  pfx คือคำนำหน้าชื่อ node ("" ถ้ามีวงเดียว, "C1_" ฯลฯ ถ้าหลายวง)
+ * ชื่อ node ต้องไม่ซ้ำข้ามวง ไม่งั้น Graphviz จะรวมเป็น node เดียวกัน
+ */
+static void dot_cycle(int fd, const dd_cycle_t *c, const char *pfx, const char *ind) {
     size_t i;
 
-    if (c == NULL || c->len == 0) return;
+    for (i = 0; i < c->len; i++) {
+        dot_emit(fd, "%s%sT%zu [shape=ellipse, style=filled, fillcolor=mistyrose,"
+                     " label=%cThread %lu%c];", ind, pfx, i, DQ, c->tids[i], DQ);
+        dot_emit(fd, "%s%sM%zu [shape=box, style=filled, fillcolor=lightblue,"
+                     " label=%cmutex %p%c];", ind, pfx, i, DQ, c->mutexes[i], DQ);
+    }
+    dot_blank(fd);
+
+    for (i = 0; i < c->len; i++) {
+        /* tids[i] กำลังขอ mutexes[i] */
+        dot_emit(fd, "%s%sT%zu -> %sM%zu [color=red, label=waiting];", ind, pfx, i, pfx, i);
+        /* partial: mutex ตัวสุดท้ายถือโดย thread ที่ถูกตัดทิ้ง ไม่ใช่ T0
+         * ชี้ไปที่ node "..." แทน ห้ามวาดเส้นปิดวงปลอม
+         */
+        if (c->partial && i + 1 == c->len) {
+            dot_emit(fd, "%s%smore [shape=plaintext, label=%c... (partial path, truncated)%c];",
+                     ind, pfx, DQ, DQ);
+            dot_emit(fd, "%s%sM%zu -> %smore [style=dashed, label=%cheld by%c];",
+                     ind, pfx, i, pfx, DQ, DQ);
+            continue;
+        }
+        /* mutexes[i] ถือโดย tids[i+1] — เส้นสุดท้ายคือตัวปิดวงให้ครบรอบ */
+        dot_emit(fd, "%s%sM%zu -> %sT%zu [label=%cheld by%c];",
+                 ind, pfx, i, pfx, (i + 1) % c->len, DQ, DQ);
+    }
+}
+
+void dd_report_dot(const dd_cycle_t *cs, size_t n, const char *path) {
+    int    fd;
+    char   title[160];
+    char   pfx[24];   /* "C" + size_t สูงสุด 20 หลัก + "_" + NUL */
+
+    if (cs == NULL || n == 0) return;
     if (path == NULL) path = getenv("DD_DOT_OUT");
     if (path == NULL || *path == 0) return;    /* ไม่ได้สั่งให้เขียน ก็ไม่ต้องทำ */
 
@@ -258,29 +330,33 @@ void dd_report_dot(const dd_cycle_t *c, const char *path) {
     dot_emit(fd, "digraph deadlock {");
     dot_emit(fd, "  rankdir=LR;");
     dot_emit(fd, "  labelloc=t;");
-    dot_emit(fd, "  label=%cDEADLOCK: %zu threads in cycle%c;", DQ, c->len, DQ);
+    if (n == 1) {
+        cycle_title(&cs[0], title, sizeof title);
+        dot_emit(fd, "  label=%c%s%c;", DQ, title, DQ);
+    } else {
+        dot_emit(fd, "  label=%cDEADLOCK: %zu cycles%c;", DQ, n, DQ);
+    }
     dot_emit(fd, "  node [fontname=monospace];");
     dot_emit(fd, "  edge [fontname=monospace, fontsize=10];");
     dot_blank(fd);
 
-    for (i = 0; i < c->len; i++) {
-        dot_emit(fd, "  T%zu [shape=ellipse, style=filled, fillcolor=mistyrose,"
-                     " label=%cThread %lu%c];", i, DQ, c->tids[i], DQ);
-        dot_emit(fd, "  M%zu [shape=box, style=filled, fillcolor=lightblue,"
-                     " label=%cmutex %p%c];", i, DQ, c->mutexes[i], DQ);
-    }
-    dot_blank(fd);
-
-    for (i = 0; i < c->len; i++) {
-        /* tids[i] กำลังขอ mutexes[i] */
-        dot_emit(fd, "  T%zu -> M%zu [color=red, label=waiting];", i, i);
-        /* mutexes[i] ถือโดย tids[i+1] — เส้นนี้คือตัวปิดวงให้ครบรอบ */
-        dot_emit(fd, "  M%zu -> T%zu [label=%cheld by%c];",
-                 i, (i + 1) % c->len, DQ, DQ);
+    if (n == 1) {
+        dot_cycle(fd, &cs[0], "", "  ");
+    } else {
+        /* หลายวง: แยกเป็น cluster ละวง มีกรอบและหัวข้อของตัวเอง */
+        for (size_t k = 0; k < n; k++) {
+            snprintf(pfx, sizeof pfx, "C%zu_", k + 1);
+            cycle_title(&cs[k], title, sizeof title);
+            dot_emit(fd, "  subgraph cluster_%zu {", k + 1);
+            dot_emit(fd, "    label=%ccycle %zu — %s%c;", DQ, k + 1, title, DQ);
+            dot_cycle(fd, &cs[k], pfx, "    ");
+            dot_emit(fd, "  }");
+        }
     }
 
     dot_emit(fd, "}");
-    close(fd);
+    if (close(fd) != 0)
+        dd_logf("[dd] WARNING: ปิดไฟล์ %s ไม่สำเร็จ\n", path);
 
     dd_logf("  Graph : เขียน %s แล้ว   (dot -Tpng %s -o cycle.png)\n", path, path);
 }

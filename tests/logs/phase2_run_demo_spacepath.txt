@@ -1,0 +1,124 @@
+
+==================================================================
+  build
+==================================================================
+
+make: Nothing to be done for 'all'.
+
+==================================================================
+  1) รันโปรแกรมโอนเงินธรรมดา
+==================================================================
+
+   $ ./build/bank
+
+bank: โอนเงินสองทิศทางพร้อมกัน
+      เงียบไปเกิน 1 วินาที = deadlock แล้ว (Ctrl-C เพื่อออก)
+
+[t1] lock alice
+[t2] lock bob
+[t2] lock alice ...
+[t1] lock bob ...
+
+   ^ ค้างนิ่งจนถูกตัดที่ 3 วินาที
+     ไม่ crash ไม่มี error message ไม่มี stack trace  CPU 0%
+     นี่คือทั้งหมดที่ deadlock บอกเรา
+   [ผ่าน]     ค้างจนหมดเวลา (exit 124)
+
+==================================================================
+  2) คำสั่งเดิมเป๊ะ แค่เติม LD_PRELOAD ข้างหน้า
+==================================================================
+
+   $ LD_PRELOAD=./build/libdetect.so ./build/bank
+
+bank: โอนเงินสองทิศทางพร้อมกัน
+      เงียบไปเกิน 1 วินาที = deadlock แล้ว (Ctrl-C เพื่อออก)
+
+[t2] lock bob
+[t1] lock alice
+[t1] lock bob ...
+[t2] lock alice ...
+
+[DEADLOCK DETECTED] 2 threads in cycle
+
+  Thread 793
+      holds   mutex 0x5e4d4bae4030   at bank.c:65
+      waiting mutex 0x5e4d4bae4070   at bank.c:70
+  Thread 794
+      holds   mutex 0x5e4d4bae4070   at bank.c:89
+      waiting mutex 0x5e4d4bae4030   at bank.c:94
+
+  Cycle: T793 -> T794 -> T793
+  Hint : acquire locks in a consistent global order
+
+
+   ^ บอกครบ: thread ไหนถืออะไร รออะไร และบรรทัดไหนในซอร์ส
+
+   เทียบกับซอร์สจริง:
+     15: * barrier ของ glibc ไม่ได้เรียก pthread_mutex_lock ข้างใน (ใช้ futex ของมันเอง)
+     65:    pthread_mutex_lock(&alice.lock);      /* <-- รายงานต้องชี้บรรทัดนี้เป็น "holds" */
+     70:    pthread_mutex_lock(&bob.lock);        /* <-- ค้างตรงนี้ รายงานชี้เป็น "waiting" */
+     89:    pthread_mutex_lock(&bob.lock);         /* <-- "holds" ของ t2 */
+     94:    pthread_mutex_lock(&alice.lock);       /* <-- "waiting" ของ t2 ค้างตรงนี้ */
+     119:    /* ไม่เคยคืนค่า — ทั้งสอง thread ค้างอยู่ใน pthread_mutex_lock */
+   [ผ่าน]     ยังค้างอยู่ (exit 124) — เครื่องมือตรวจ ไม่ได้แก้
+   [ผ่าน]     stderr มี [DEADLOCK DETECTED]
+
+==================================================================
+  3) export wait-for graph เป็นภาพ
+==================================================================
+
+   $ DD_DOT_OUT=cycle.dot LD_PRELOAD=./build/libdetect.so ./build/bank
+
+     digraph deadlock {
+       rankdir=LR;
+       labelloc=t;
+       label="DEADLOCK: 2 threads in cycle";
+       node [fontname=monospace];
+       edge [fontname=monospace, fontsize=10];
+     
+       T0 [shape=ellipse, style=filled, fillcolor=mistyrose, label="Thread 819"];
+       M0 [shape=box, style=filled, fillcolor=lightblue, label="mutex 0x5e435f128030"];
+       T1 [shape=ellipse, style=filled, fillcolor=mistyrose, label="Thread 818"];
+       M1 [shape=box, style=filled, fillcolor=lightblue, label="mutex 0x5e435f128070"];
+     
+       T0 -> M0 [color=red, label=waiting];
+       M0 -> T1 [label="held by"];
+       T1 -> M1 [color=red, label=waiting];
+       M1 -> T0 [label="held by"];
+     }
+
+   [ผ่าน]     ได้ไฟล์ cycle.dot และไม่ว่าง
+   -> เขียน cycle.png แล้ว เปิดดูได้เลย
+
+   วงรี = thread  สี่เหลี่ยม = mutex
+   T -> M คือกำลังขอ (แดง)   M -> T คือถูกถืออยู่
+   ลูกศรวนครบรอบ = circular wait  ตรงกับ resource allocation graph ในสไลด์
+
+==================================================================
+  4) เวอร์ชันที่แก้แล้ว — ล็อกตามลำดับสากล
+==================================================================
+
+   $ LD_PRELOAD=./build/libdetect.so ./build/no_deadlock
+
+no_deadlock: โค้ดเดียวกับ bank.c แต่ล็อกตามลำดับสากล
+             ต้องจบเองภายใน ~1 วินาที และเครื่องมือต้องไม่รายงานอะไร
+
+[t1] โอน alice -> bob
+[t2] โอน bob -> alice
+[t1] done
+[t2] done
+
+ยอดคงเหลือ: alice=1100 bob=900 (รวม 2000)
+PASS: จบเองไม่ค้าง และยอดรวมถูกต้อง
+
+   ^ บัญชีเดียวกัน โอนสวนทางกันเหมือนกัน
+     ต่างแค่ทุก thread ล็อกตามลำดับสากลเดียวกัน
+   [ผ่าน]     จบเองไม่ค้าง (exit 0)
+   [ผ่าน]     ไม่มี [DEADLOCK DETECTED] (ไม่เตือนผิด)
+
+==================================================================
+  จบ demo
+==================================================================
+
+   ผ่านทุกขั้น
+

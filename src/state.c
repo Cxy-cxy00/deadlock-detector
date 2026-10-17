@@ -173,11 +173,18 @@ void dd_state_released(dd_tid_t t, dd_mutex_t m) {
     dd_state_lock();
     size_t i = find_hold(m);
     if (i < g_nholds) {
-        if (g_holds[i].holder != t)
-            dd_dbgf("WARNING: tid %lu ปลด mutex %p ที่ tid %lu ถืออยู่\n",
-                    t, m, g_holds[i].holder);
-        g_holds[i] = g_holds[g_nholds - 1];
-        g_nholds--;
+        if (g_holds[i].holder != t) {
+            /* คนที่ไม่ใช่เจ้าของสั่ง unlock: ERRORCHECK/ROBUST mutex จะคืน EPERM
+             * และเจ้าของจริงยังถือ lock อยู่ — ถ้าเราลบ entry ทิ้ง ตารางจะเข้าใจผิดว่าว่าง
+             * แล้วพลาด cycle ที่ผ่าน mutex ตัวนี้  จึงคง entry ไว้
+             * (NORMAL mutex กรณีนี้เป็น undefined behavior ของโปรแกรมเป้าหมายอยู่แล้ว)
+             */
+            dd_logf("[dd] WARNING: tid %lu ปลด mutex %p ที่ tid %lu ถืออยู่ "
+                    "— คงข้อมูลเจ้าของเดิมไว้\n", t, m, g_holds[i].holder);
+        } else {
+            g_holds[i] = g_holds[g_nholds - 1];
+            g_nholds--;
+        }
     }
     dd_state_unlock();
 }

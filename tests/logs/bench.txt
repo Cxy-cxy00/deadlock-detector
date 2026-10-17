@@ -1,0 +1,19 @@
+# make bench  (2026-10-17T20:58:59+07:00)
+# เครื่องที่วัด
+cpu    : 13th Gen Intel(R) Core(TM) i9-13900H
+cores  : 20
+glibc  : glibc 2.43
+gcc    : gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0
+kernel : 6.6.114.1-microsoft-standard-WSL2
+
+# 1,000,000 คู่ lock+unlock ต่อรอบ · วอร์มอัพ 1 รอบ · วัด 15 รอบ · รายงาน median
+
+## uncontended
+ไม่มี LD_PRELOAD : uncontended threads=1 pairs=1000000 rounds=15  median=2.3 ns/pair  min=2.2  max=2.4
+มี LD_PRELOAD    : uncontended threads=1 pairs=1000000 rounds=15  median=72.8 ns/pair  min=71.4  max=74.1
+overhead         : +70.5 ns/pair (x31.7)
+
+## contended
+ไม่มี LD_PRELOAD : contended   threads=4 pairs=1000000 rounds=15  median=38.7 ns/pair  min=36.9  max=39.6
+มี LD_PRELOAD    : contended   threads=4 pairs=1000000 rounds=15  median=296.1 ns/pair  min=280.9  max=309.1
+overhead         : +257.4 ns/pair (x7.7)

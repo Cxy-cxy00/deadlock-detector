@@ -1,0 +1,65 @@
+# timeout 3s env DD_VERBOSE=1 LD_PRELOAD="$PWD/build/libdetect.so" ./build/bank  (stderr เท่านั้น)
+# ใช้ยืนยันว่า pthread_barrier ไม่ทำให้มี mutex/thread แปลกในตาราง: ต้องเห็นแค่ 2 mutex และ 2 tid
+[dd] state: พร้อม (รองรับรอสูงสุด 256, mutex สูงสุด 1024)
+[dd] detector: เริ่มทำงาน ตรวจทุก 500 ms
+[dd] lock    0x607510c3a030 tid=676 pc=0x607510c373b8
+[dd] ---- state: รอ 1, ถือ 0 ----
+[dd] lock    0x607510c3a070 tid=677 pc=0x607510c37499
+[dd]      wait  tid 676 -> mutex 0x607510c3a030 (ยังไม่มีเจ้าของ)
+[dd] locked  0x607510c3a030 tid=676 rc=0
+[dd] ---- state: รอ 1, ถือ 1 ----
+[dd]      hold  mutex 0x607510c3a030  <- tid 676
+[dd]      wait  tid 677 -> mutex 0x607510c3a070 (ยังไม่มีเจ้าของ)
+[dd] locked  0x607510c3a070 tid=677 rc=0
+[dd] lock    0x607510c3a030 tid=677 pc=0x607510c374cb
+[dd] ---- state: รอ 1, ถือ 2 ----
+[dd] lock    0x607510c3a070 tid=676 pc=0x607510c373ea
+[dd]      hold  mutex 0x607510c3a030  <- tid 676
+[dd]      hold  mutex 0x607510c3a070  <- tid 677
+[dd]      wait  tid 677 -> mutex 0x607510c3a030 (ถือโดย tid 676)   EDGE 677 -> 676
+[dd] ---- state: รอ 2, ถือ 2 ----
+[dd]      hold  mutex 0x607510c3a030  <- tid 676
+[dd]      hold  mutex 0x607510c3a070  <- tid 677
+[dd]      wait  tid 677 -> mutex 0x607510c3a030 (ถือโดย tid 676)   EDGE 677 -> 676
+[dd]      wait  tid 676 -> mutex 0x607510c3a070 (ถือโดย tid 677)   EDGE 676 -> 677
+[dd] graph: edge tid 677 -> tid 676 (รอ mutex 0x607510c3a030)
+[dd] graph: edge tid 676 -> tid 677 (รอ mutex 0x607510c3a070)
+[dd] graph: สร้างเสร็จ 2 node
+[dd] graph: เจอ cycle ยาว 2
+
+[DEADLOCK DETECTED] 2 threads in cycle
+
+  Thread 677
+[dd] state: พร้อม (รองรับรอสูงสุด 256, mutex สูงสุด 1024)
+[dd] detector: เริ่มทำงาน ตรวจทุก 500 ms
+      holds   mutex 0x607510c3a070   at bank.c:89
+[dd] state: พร้อม (รองรับรอสูงสุด 256, mutex สูงสุด 1024)
+[dd] detector: เริ่มทำงาน ตรวจทุก 500 ms
+      waiting mutex 0x607510c3a030   at bank.c:94
+  Thread 676
+[dd] state: พร้อม (รองรับรอสูงสุด 256, mutex สูงสุด 1024)
+[dd] detector: เริ่มทำงาน ตรวจทุก 500 ms
+      holds   mutex 0x607510c3a030   at bank.c:65
+[dd] state: พร้อม (รองรับรอสูงสุด 256, mutex สูงสุด 1024)
+[dd] detector: เริ่มทำงาน ตรวจทุก 500 ms
+      waiting mutex 0x607510c3a070   at bank.c:70
+
+  Cycle: T677 -> T676 -> T677
+  Hint : acquire locks in a consistent global order
+
+[dd] graph: edge tid 677 -> tid 676 (รอ mutex 0x607510c3a030)
+[dd] graph: edge tid 676 -> tid 677 (รอ mutex 0x607510c3a070)
+[dd] graph: สร้างเสร็จ 2 node
+[dd] graph: เจอ cycle ยาว 2
+[dd] detector: วงเดิม ไม่รายงานซ้ำ
+[dd] graph: edge tid 677 -> tid 676 (รอ mutex 0x607510c3a030)
+[dd] graph: edge tid 676 -> tid 677 (รอ mutex 0x607510c3a070)
+[dd] graph: สร้างเสร็จ 2 node
+[dd] graph: เจอ cycle ยาว 2
+[dd] detector: วงเดิม ไม่รายงานซ้ำ
+[dd] graph: edge tid 677 -> tid 676 (รอ mutex 0x607510c3a030)
+[dd] graph: edge tid 676 -> tid 677 (รอ mutex 0x607510c3a070)
+[dd] graph: สร้างเสร็จ 2 node
+[dd] graph: เจอ cycle ยาว 2
+[dd] detector: วงเดิม ไม่รายงานซ้ำ
+---- exit=124 ----

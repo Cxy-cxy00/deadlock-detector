@@ -9,6 +9,7 @@
  * กันไม่ให้ตัวเองโผล่ไปเป็น node ในกราฟที่กำลังตรวจอยู่
  */
 #include <pthread.h>
+#include <stdatomic.h>
 #include <time.h>
 #include "detector.h"
 #include "interpose.h"
@@ -23,48 +24,67 @@
 
 static pthread_t    g_thread;
 static int          g_running = 0;
-static volatile int g_stop    = 0;
 
-/* cycle ที่รายงานไปแล้ว — ไม่งั้นจะพิมพ์ซ้ำทุกคาบจนจอท่วม
- * (ปิดคำถามข้อสุดท้ายใน docs/design.md: เลือกพิมพ์ครั้งเดียวต่อหนึ่ง cycle)
+/* destructor (main thread) เขียน, detector thread อ่าน — ต้องเป็น atomic
+ * volatile แค่กัน compiler cache ค่า ไม่ใช่ synchronization ตาม C11 จึงยังเป็น data race
  */
-static dd_cycle_t g_last;
-static int        g_has_last = 0;
+static atomic_int   g_stop    = 0;
+
+/* cycle ที่เจอในรอบนี้ และที่เจอในรอบก่อน (= รายงานไปแล้ว)
+ * เทียบกับรอบก่อนเพื่อพิมพ์ครั้งเดียวต่อหนึ่ง cycle ไม่งั้นจะพิมพ์ซ้ำทุกคาบจนจอท่วม
+ * static เพราะใหญ่ (ราว 1 KB ต่อวง) และมีแต่ detector thread ที่แตะ
+ */
+static dd_cycle_t g_cur[DD_MAX_CYCLES];
+static dd_cycle_t g_seen[DD_MAX_CYCLES];
+static size_t     g_nseen = 0;
 
 /* เทียบแบบ "เซต" ไม่ใช่เทียบทีละตำแหน่ง เพราะ DFS อาจเริ่มไล่จากคนละ node
  * แล้วได้ลำดับเริ่มต้นต่างกัน ทั้งที่เป็นวงเดียวกัน
  */
-static int same_as_last(const dd_cycle_t *c) {
-    if (!g_has_last || g_last.len != c->len) return 0;
-    for (size_t i = 0; i < c->len; i++) {
+static int same_cycle(const dd_cycle_t *a, const dd_cycle_t *b) {
+    if (a->len != b->len) return 0;
+    for (size_t i = 0; i < a->len; i++) {
         int found = 0;
-        for (size_t j = 0; j < g_last.len; j++)
-            if (g_last.tids[j] == c->tids[i]) { found = 1; break; }
+        for (size_t j = 0; j < b->len; j++)
+            if (b->tids[j] == a->tids[i]) { found = 1; break; }
         if (!found) return 0;
     }
     return 1;
 }
 
-/* ตรวจหนึ่งรอบ: สร้างกราฟ -> หา cycle -> รายงาน
+static int seen_before(const dd_cycle_t *c) {
+    for (size_t i = 0; i < g_nseen; i++)
+        if (same_cycle(c, &g_seen[i])) return 1;
+    return 0;
+}
+
+/* ตรวจหนึ่งรอบ: สร้างกราฟ -> หา cycle ทุกวง -> รายงานเฉพาะวงใหม่
  * คืน 1 ถ้า "ตอนนี้มี deadlock" แม้จะเป็นวงเดิมที่รายงานไปแล้วก็ตาม
  */
 int dd_detector_check_once(void) {
-    dd_cycle_t c;
+    size_t n, fresh = 0;
 
     dd_graph_build();
-    if (!dd_graph_find_cycle(&c))
-        return 0;
+    n = dd_graph_find_cycles(g_cur, DD_MAX_CYCLES);
 
-    if (same_as_last(&c)) {
-        dd_dbgf("detector: วงเดิม ไม่รายงานซ้ำ\n");
-        return 1;
+    for (size_t i = 0; i < n; i++) {
+        if (seen_before(&g_cur[i])) {
+            dd_dbgf("detector: วงเดิม ไม่รายงานซ้ำ\n");
+            continue;
+        }
+        dd_report_cycle(&g_cur[i]);
+        fresh++;
     }
 
-    g_last     = c;
-    g_has_last = 1;
-    dd_report_cycle(&c);
-    dd_report_dot(&c, NULL);   /* เขียนไฟล์ .dot ถ้าตั้ง DD_DOT_OUT ไว้ (ขั้น 10) */
-    return 1;
+    /* มีวงใหม่ -> เขียน .dot ใหม่ทั้งไฟล์ให้มีทุกวงที่ค้างอยู่ตอนนี้ (ถ้าตั้ง DD_DOT_OUT) */
+    if (fresh > 0)
+        dd_report_dot(g_cur, n, NULL);
+
+    for (size_t i = 0; i < n; i++)
+        g_seen[i] = g_cur[i];
+    g_nseen = n;
+
+    return n > 0;
 }
 
 static void *detector_main(void *arg) {
@@ -75,13 +95,13 @@ static void *detector_main(void *arg) {
 
     dd_dbgf("detector: เริ่มทำงาน ตรวจทุก %d ms\n", DD_CHECK_INTERVAL_MS);
 
-    while (!g_stop) {
-        for (int slept = 0; slept < DD_CHECK_INTERVAL_MS && !g_stop;
+    while (!atomic_load(&g_stop)) {
+        for (int slept = 0; slept < DD_CHECK_INTERVAL_MS && !atomic_load(&g_stop);
              slept += DD_SLEEP_CHUNK_MS) {
             struct timespec ts = { 0, (long)DD_SLEEP_CHUNK_MS * 1000000L };
             nanosleep(&ts, NULL);
         }
-        if (g_stop) break;
+        if (atomic_load(&g_stop)) break;
         dd_detector_check_once();
     }
 
@@ -91,7 +111,7 @@ static void *detector_main(void *arg) {
 
 void dd_detector_start(void) {
     if (g_running) return;
-    g_stop = 0;
+    atomic_store(&g_stop, 0);
     if (pthread_create(&g_thread, NULL, detector_main, NULL) != 0) {
         dd_logf("[dd] WARNING: สร้าง detector thread ไม่สำเร็จ "
                 "— จะไม่มีการตรวจ deadlock\n");
@@ -102,7 +122,7 @@ void dd_detector_start(void) {
 
 void dd_detector_stop(void) {
     if (!g_running) return;
-    g_stop = 1;
+    atomic_store(&g_stop, 1);
     pthread_join(g_thread, NULL);
     g_running = 0;
 }

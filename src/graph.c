@@ -1,7 +1,7 @@
 /* graph.c — wait-for graph และการหา cycle  (ผู้รับผิดชอบ: คนที่ 3)
  *
  * node = thread,  edge T1 -> T2 แปลว่า "T1 รอ mutex ที่ T2 ถืออยู่"
- * มี cycle = เกิด deadlock แล้ว (ตรงตามนิยามในบท Deadlocks)
+ * มี cycle = circular wait ภายใต้ scope ที่รองรับ (NORMAL mutex — ดู Limitations ใน README)
  *
  * ===== ข้อสังเกตสำคัญ: กราฟนี้มี out-degree ไม่เกิน 1 =====
  * thread หนึ่งตัวค้างอยู่ใน pthread_mutex_lock ได้ทีละ "หนึ่ง" mutex เท่านั้น
@@ -21,7 +21,7 @@
  *
  * ===== ใครเรียกได้ =====
  * ตัวแปรระดับไฟล์ทั้งหมดเป็นของ detector thread คนเดียว ห้ามเรียกจาก thread อื่น
- * และต้องเรียก dd_graph_build() ก่อน dd_graph_find_cycle() เสมอ
+ * และต้องเรียก dd_graph_build() ก่อน dd_graph_find_cycles() เสมอ
  */
 #include "graph.h"
 #include "state.h"
@@ -92,11 +92,18 @@ void dd_graph_build(void) {
     dd_dbgf("graph: สร้างเสร็จ %zu node\n", g_nnodes);
 }
 
-/* ---- หา cycle ด้วย DFS ระบายสี ----
- * คืน 1 ถ้าเจอ (เขียนผลลง out) คืน 0 ถ้าไม่เจอ
+/* ---- หา cycle ทุกวงด้วย DFS ระบายสี ----
+ * เขียนผลลง out[0..max-1] คืนจำนวนวงที่เจอ (0 = ไม่มี)
+ *
+ * เพราะ out-degree ไม่เกิน 1 แต่ละกลุ่มของ node ที่ต่อกันมีวงได้ไม่เกิน 1 วง
+ * และวงคนละวงไม่มี node ร่วมกัน  เดินครบทุก node ครั้งเดียวจึงได้ทุกวง
+ * โดยไม่ซ้ำ (เจอวงแล้วทา BLACK ทั้งเส้นแล้วเดินต่อ แทนการ return ทันที)
  */
-int dd_graph_find_cycle(dd_cycle_t *out) {
-    if (out == NULL || g_nnodes == 0)
+size_t dd_graph_find_cycles(dd_cycle_t *out, size_t max) {
+    size_t found = 0;
+    int    warned = 0;
+
+    if (out == NULL || max == 0 || g_nnodes == 0)
         return 0;
 
     for (size_t i = 0; i < g_nnodes; i++)
@@ -115,7 +122,14 @@ int dd_graph_find_cycle(dd_cycle_t *out) {
             u = g_next[u];
         }
 
-        if (u != DD_NO_EDGE && g_color[u] == DD_GRAY) {
+        if (u != DD_NO_EDGE && g_color[u] == DD_GRAY && found == max) {
+            /* ช่องเก็บเต็ม — วงนี้มีจริงแต่รายงานไม่ได้ในรอบนี้ */
+            if (!warned) {
+                warned = 1;
+                dd_dbgf("graph: เจอ cycle เกิน %zu วง — เก็บแค่ %zu วงแรก\n", max, max);
+            }
+        } else if (u != DD_NO_EDGE && g_color[u] == DD_GRAY) {
+            dd_cycle_t *c = &out[found];
             /* เจอ GRAY = วนกลับเข้าเส้นทางที่กำลังเดินอยู่ -> เป็น cycle แน่นอน
              * (GRAY ต้องมาจากรอบนี้เสมอ เพราะจบแต่ละรอบเราทา BLACK ทิ้งทั้งเส้น)
              *
@@ -127,27 +141,34 @@ int dd_graph_find_cycle(dd_cycle_t *out) {
                 start++;
 
             size_t len = plen - start;
+            c->full_len = len;
+            c->partial  = 0;
             if (len > DD_MAX_CYCLE_LEN) {
-                dd_logf("[dd] WARNING: cycle ยาว %zu เกิน DD_MAX_CYCLE_LEN (%d) "
-                        "— รายงานแค่บางส่วน\n", len, DD_MAX_CYCLE_LEN);
+                /* เก็บได้แค่ช่วงแรก — ตั้ง partial ไว้ให้ report/DOT ไม่วาดลูกศรปิดวงปลอม
+                 * ใช้ dd_dbgf: ฟังก์ชันนี้ถูกเรียกทุกคาบ ถ้าใช้ dd_logf จะเตือนซ้ำทุก 500 ms
+                 * ส่วนรายงาน (พิมพ์ครั้งเดียวต่อวง) บอกเรื่องถูกตัดไว้แล้วในหัวรายงาน
+                 */
+                dd_dbgf("graph: cycle ยาว %zu เกิน DD_MAX_CYCLE_LEN (%d) "
+                        "— เก็บแค่บางส่วน\n", len, DD_MAX_CYCLE_LEN);
                 len = DD_MAX_CYCLE_LEN;
+                c->partial = 1;
             }
 
             for (size_t k = 0; k < len; k++) {
                 int n = g_path[start + k];
-                out->tids[k]    = g_tid[n];
-                out->mutexes[k] = g_wait_on[n];   /* mutex ที่ tids[k] รออยู่ */
+                c->tids[k]    = g_tid[n];
+                c->mutexes[k] = g_wait_on[n];   /* mutex ที่ tids[k] รออยู่ */
             }
-            out->len = len;
+            c->len = len;
+            found++;
 
-            dd_dbgf("graph: เจอ cycle ยาว %zu\n", len);
-            return 1;
+            dd_dbgf("graph: เจอ cycle ยาว %zu (วงที่ %zu)\n", len, found);
         }
 
-        /* เส้นทางนี้ตันหรือไปชนของเก่าที่ตรวจแล้ว -> ไม่มี cycle ผ่านทางนี้ */
+        /* จบเส้นทางนี้ (ตัน / ชนของเก่า / เจอวงแล้ว) -> ทา BLACK ทั้งเส้นแล้วไปต่อ */
         for (size_t k = 0; k < plen; k++)
             g_color[g_path[k]] = DD_BLACK;
     }
 
-    return 0;
+    return found;
 }

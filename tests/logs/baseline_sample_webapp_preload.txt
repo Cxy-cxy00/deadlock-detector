@@ -1,0 +1,26 @@
+# timeout 5s env LD_PRELOAD="$PWD/build/libdetect.so" ./build/sample_webapp
+# date: 2026-10-17T20:22:44+07:00
+# expect: exit=124 marker=1   got: exit=124 marker=1   => PASS
+---- stdout ----
+sample_webapp: จำลองเซิร์ฟเวอร์ที่มี worker กับตัวเก็บสถิติ
+               ถ้าเงียบไปเกิน 1 วินาที = ค้างแล้ว
+
+  [worker]  จอง connection แล้ว (active=1)
+  [metrics] อ่านตัวนับแล้ว (requests=0)
+  [metrics] ขอ lock ของ pool เพื่อดูจำนวน connection ...
+  [worker]  ขอ lock ของ stats เพื่อบวกตัวนับ ...
+---- stderr ----
+
+[DEADLOCK DETECTED] 2 threads in cycle
+
+  Thread 523
+      holds   mutex 0x5a47f7014080   at sample_webapp.c:86
+      waiting mutex 0x5a47f7014020   at sample_webapp.c:95
+  Thread 522
+      holds   mutex 0x5a47f7014020   at sample_webapp.c:63
+      waiting mutex 0x5a47f7014080   at sample_webapp.c:72
+
+  Cycle: T523 -> T522 -> T523
+  Hint : acquire locks in a consistent global order
+
+---- exit=124 ----

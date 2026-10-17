@@ -1,0 +1,26 @@
+# timeout 5s env LD_PRELOAD="$PWD/build/libdetect.so" ./build/bank
+# date: 2026-10-17T20:33:19+07:00
+# expect: exit=124 marker=1   got: exit=124 marker=1   => PASS
+---- stdout ----
+bank: โอนเงินสองทิศทางพร้อมกัน
+      เงียบไปเกิน 1 วินาที = deadlock แล้ว (Ctrl-C เพื่อออก)
+
+[t1] lock alice
+[t2] lock bob
+[t2] lock alice ...
+[t1] lock bob ...
+---- stderr ----
+
+[DEADLOCK DETECTED] 2 threads in cycle
+
+  Thread 672
+      holds   mutex 0x5c3fbce5c070   at bank.c:89
+      waiting mutex 0x5c3fbce5c030   at bank.c:94
+  Thread 671
+      holds   mutex 0x5c3fbce5c030   at bank.c:65
+      waiting mutex 0x5c3fbce5c070   at bank.c:70
+
+  Cycle: T672 -> T671 -> T672
+  Hint : acquire locks in a consistent global order
+
+---- exit=124 ----

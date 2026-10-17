@@ -1,0 +1,9 @@
+# tools/playground.py: เรียก /api/status และ /api/run จากโฟลเดอร์จริง (มีช่องว่าง) เทียบกับ symlink ~/dd
+== real ==
+status: {'lib_found': True, 'lib_ready': False} problem: path ของ libdetect.so มีช่องว่างหรือ ':' (/mnt/c/Users/frank
+run bank: path ของ libdetect.so มีช่องว่างหรือ ':' (/mnt/c/Users/frank/Documents report: False
+run abort: path ของ libdetect.so มีช่องว่างหรือ ':' (/mnt/c/Users/frank/Documents
+== symlink ==
+status: {'lib_found': True, 'lib_ready': True} problem: 
+run bank: {'outcome': 'timeout', 'timed_out': True} report: True
+run abort: {'outcome': 'abnormal', 'exit': -6}

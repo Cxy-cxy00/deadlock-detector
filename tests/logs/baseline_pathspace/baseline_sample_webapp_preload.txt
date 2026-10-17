@@ -1,0 +1,16 @@
+# timeout 5s env LD_PRELOAD="$PWD/build/libdetect.so" ./build/sample_webapp
+# date: 2026-10-17T20:21:34+07:00
+# expect: exit=124 marker=1   got: exit=124 marker=0   => FAIL
+---- stdout ----
+sample_webapp: จำลองเซิร์ฟเวอร์ที่มี worker กับตัวเก็บสถิติ
+               ถ้าเงียบไปเกิน 1 วินาที = ค้างแล้ว
+
+  [worker]  จอง connection แล้ว (active=1)
+  [metrics] อ่านตัวนับแล้ว (requests=0)
+  [worker]  ขอ lock ของ stats เพื่อบวกตัวนับ ...
+  [metrics] ขอ lock ของ pool เพื่อดูจำนวน connection ...
+---- stderr ----
+ERROR: ld.so: object '/mnt/c/Users/frank/Documents/Bachelor' from LD_PRELOAD cannot be preloaded (cannot open shared object file): ignored.
+ERROR: ld.so: object 'degree/3.' from LD_PRELOAD cannot be preloaded (cannot open shared object file): ignored.
+ERROR: ld.so: object 'Junior/Os/ProjectOs/deadlock-detector/build/libdetect.so' from LD_PRELOAD cannot be preloaded (cannot open shared object file): ignored.
+---- exit=124 ----

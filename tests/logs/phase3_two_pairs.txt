@@ -1,0 +1,67 @@
+# timeout 5s env DD_DOT_OUT=/tmp/two.dot LD_PRELOAD="$PWD/build/libdetect.so" ./build/two_pairs
+# ต้องได้ [DEADLOCK DETECTED] 2 ครั้ง (ครั้งละวง) แม้ detector ตรวจหลายคาบ
+exit=124  reports=2
+---- stderr ----
+
+[DEADLOCK DETECTED] 2 threads in cycle
+
+  Thread 1272
+      holds   mutex 0x639273a0a120   at two_pairs.c:32
+      waiting mutex 0x639273a0a0e0   at two_pairs.c:38
+  Thread 1271
+      holds   mutex 0x639273a0a0e0   at two_pairs.c:32
+      waiting mutex 0x639273a0a120   at two_pairs.c:38
+
+  Cycle: T1272 -> T1271 -> T1272
+  Hint : acquire locks in a consistent global order
+
+
+[DEADLOCK DETECTED] 2 threads in cycle
+
+  Thread 1269
+      holds   mutex 0x639273a0a060   at two_pairs.c:32
+      waiting mutex 0x639273a0a0a0   at two_pairs.c:38
+  Thread 1270
+      holds   mutex 0x639273a0a0a0   at two_pairs.c:32
+      waiting mutex 0x639273a0a060   at two_pairs.c:38
+
+  Cycle: T1269 -> T1270 -> T1269
+  Hint : acquire locks in a consistent global order
+
+  Graph : เขียน /tmp/two.dot แล้ว   (dot -Tpng /tmp/two.dot -o cycle.png)
+---- dot ----
+digraph deadlock {
+  rankdir=LR;
+  labelloc=t;
+  label="DEADLOCK: 2 cycles";
+  node [fontname=monospace];
+  edge [fontname=monospace, fontsize=10];
+
+  subgraph cluster_1 {
+    label="cycle 1 — DEADLOCK: 2 threads in cycle";
+    C1_T0 [shape=ellipse, style=filled, fillcolor=mistyrose, label="Thread 1272"];
+    C1_M0 [shape=box, style=filled, fillcolor=lightblue, label="mutex 0x639273a0a0e0"];
+    C1_T1 [shape=ellipse, style=filled, fillcolor=mistyrose, label="Thread 1271"];
+    C1_M1 [shape=box, style=filled, fillcolor=lightblue, label="mutex 0x639273a0a120"];
+
+    C1_T0 -> C1_M0 [color=red, label=waiting];
+    C1_M0 -> C1_T1 [label="held by"];
+    C1_T1 -> C1_M1 [color=red, label=waiting];
+    C1_M1 -> C1_T0 [label="held by"];
+  }
+  subgraph cluster_2 {
+    label="cycle 2 — DEADLOCK: 2 threads in cycle";
+    C2_T0 [shape=ellipse, style=filled, fillcolor=mistyrose, label="Thread 1269"];
+    C2_M0 [shape=box, style=filled, fillcolor=lightblue, label="mutex 0x639273a0a0a0"];
+    C2_T1 [shape=ellipse, style=filled, fillcolor=mistyrose, label="Thread 1270"];
+    C2_M1 [shape=box, style=filled, fillcolor=lightblue, label="mutex 0x639273a0a060"];
+
+    C2_T0 -> C2_M0 [color=red, label=waiting];
+    C2_M0 -> C2_T1 [label="held by"];
+    C2_T1 -> C2_M1 [color=red, label=waiting];
+    C2_M1 -> C2_T0 [label="held by"];
+  }
+}
+---- dot -Tsvg ----
+dot parse OK
+two_pairs: 10/10 runs reported exactly 2 cycles

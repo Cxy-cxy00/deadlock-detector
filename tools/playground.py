@@ -28,9 +28,51 @@ import tempfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent
+def _script_path():
+    """path ของสคริปต์นี้ "แบบที่ shell เห็น" — ไม่แปลง symlink กลับเป็น path จริง
+
+    จะได้ใช้ทางเลี่ยง "symlink ไปยัง path ที่ไม่มีช่องว่าง" ได้ (ดู lib_path_problem)
+    Path.resolve() และ os.getcwd() คืน path จริงเสมอ จึงต้องประกอบเองจาก $PWD + argv[0]
+    """
+    arg = sys.argv[0] if sys.argv and sys.argv[0] else __file__
+    if not os.path.isabs(arg):
+        cwd = os.getcwd()
+        pwd = os.environ.get("PWD")
+        try:
+            if pwd and os.path.samefile(pwd, cwd):
+                cwd = pwd
+        except OSError:
+            pass
+        arg = os.path.join(cwd, arg)
+    arg = os.path.normpath(arg)
+    try:
+        if os.path.samefile(arg, __file__):
+            return arg
+    except OSError:
+        pass
+    return os.path.abspath(__file__)
+
+
+ROOT = Path(_script_path()).parent.parent
 DOCS = ROOT / "docs"
 LIB = ROOT / "build" / "libdetect.so"
+
+
+def lib_path_problem():
+    """คืนข้อความอธิบายถ้า path ของ libdetect.so ใช้กับ LD_PRELOAD ไม่ได้ ไม่งั้นคืน None
+
+    ld.so แยกรายการใน LD_PRELOAD ด้วยช่องว่างและ ':' ถ้า path มีอักขระพวกนี้
+    library จะโหลดไม่ขึ้น โปรแกรมรันได้ปกติแต่ไม่มีรายงาน = ดูเหมือน "ไม่เจอ deadlock"
+    ซึ่งเป็นผลลัพธ์ผิดที่อันตรายที่สุด จึงต้องบอกตรง ๆ แทนที่จะปล่อยให้รันไป
+    """
+    bad = [c for c in (" ", "\t", ":") if c in str(LIB)]
+    if not bad:
+        return None
+    return ("path ของ libdetect.so มีช่องว่างหรือ ':' (" + str(LIB) + ") "
+            "ld.so แยก LD_PRELOAD ตรงอักขระพวกนี้ จึงโหลด library ไม่ขึ้น "
+            "และจะไม่มีรายงาน deadlock เลย — ย้ายโปรเจกต์ไป path ที่ไม่มีช่องว่าง "
+            "หรือทำ symlink เช่น  ln -s \"" + str(ROOT) + "\" ~/dd  "
+            "แล้วรัน  cd ~/dd && make playground")
 
 MAX_CODE_BYTES = 64 * 1024
 MIN_TIMEOUT = 1
@@ -122,6 +164,7 @@ def run_code(code, mode, timeout, filename="prog.c"):
         "stderr": "",
         "exit": None,
         "timed_out": False,
+        "outcome": None,   # "ok" = exit 0 · "timeout" = ค้างจนถูกตัด · "abnormal" = exit != 0 หรือโดน signal
         "report": None,
         "dot": "",
         "mode": mode,
@@ -172,9 +215,12 @@ def run_code(code, mode, timeout, filename="prog.c"):
             out["exit"] = rp.returncode
             out["stdout"] = rp.stdout
             out["stderr"] = rp.stderr
+            # exit != 0 (หรือติดลบ = โดน signal เช่น -6 SIGABRT, -11 SIGSEGV) ไม่ใช่ "จบเองสำเร็จ"
+            out["outcome"] = "ok" if rp.returncode == 0 else "abnormal"
         except subprocess.TimeoutExpired as e:
             # โปรแกรมค้าง = สิ่งที่เราอยากเห็นพอดี เก็บ output เท่าที่ออกมาแล้ว
             out["timed_out"] = True
+            out["outcome"] = "timeout"
             out["stdout"] = as_text(e.stdout)
             out["stderr"] = as_text(e.stderr)
 
@@ -211,8 +257,11 @@ def server_status():
             version = cp.stdout.strip()
         except (OSError, subprocess.SubprocessError):
             version = ""
+    problem = lib_path_problem()
     return {
-        "lib_ready": LIB.is_file(),
+        "lib_found": LIB.is_file(),
+        "lib_ready": LIB.is_file() and problem is None,
+        "lib_problem": problem,
         "lib_path": str(LIB),
         "gcc": bool(gcc),
         "gcc_version": version,
@@ -278,6 +327,10 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(400, {"error": "ยังไม่ได้ใส่โค้ด"})
             return
         mode = "detect" if req.get("mode") == "detect" else "plain"
+        problem = lib_path_problem()
+        if mode == "detect" and problem is not None:
+            self.send_json(400, {"error": problem})
+            return
         try:
             timeout = int(req.get("timeout") or 5)
         except (TypeError, ValueError):
@@ -296,7 +349,8 @@ def main():
     ap.add_argument("--port", type=int, default=8000)
     args = ap.parse_args()
 
-    lib_state = "พร้อม" if LIB.is_file() else "ยังไม่มี -> สั่ง make ก่อน"
+    lib_state = "พบไฟล์" if LIB.is_file() else "ยังไม่มี -> สั่ง make ก่อน"
+    problem = lib_path_problem()
     gcc_path = shutil.which("gcc") or "ไม่พบ -> sudo apt install build-essential"
     bar = "=" * 62
 
@@ -306,6 +360,10 @@ def main():
     print("  โปรเจ็ค : " + str(ROOT))
     print("  library : " + str(LIB) + "  " + lib_state)
     print("  gcc     : " + gcc_path)
+    if problem is not None:
+        print("")
+        print("  !! ERROR: " + problem)
+        print("  !! ปุ่ม 'รันผ่านเครื่องมือ' จะตอบ error นี้แทนการรัน")
     print("")
     print("  เปิดเบราว์เซอร์ไปที่  http://127.0.0.1:" + str(args.port))
     print("  กด Ctrl-C เพื่อหยุด")
