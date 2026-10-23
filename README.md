@@ -104,6 +104,7 @@ T1 กับ T2 ค้างอยู่ทั้งคู่ แต่ detector
 | export Graphviz (`DD_DOT_OUT`) | ✅ |
 | หลาย cycle พร้อมกัน: รายงานทุกวงในการตรวจรอบเดียว วงละครั้ง · `.dot` รวมทุกวง | ✅ (สูงสุด 16 วง) |
 | โปรแกรมทดสอบ `bank` / `no_deadlock` / `sample_webapp` / `two_pairs` / `cycle3` | ✅ |
+| regression test `make regress` (robust / errcheck / longcycle / condvar) | ✅ |
 | `tests/run_demo.sh` ตรวจผลจริงทุกขั้น (exit 0 = ผ่านหมด) | ✅ |
 | ซิมูเลเตอร์ Banker's Algorithm (`docs/banker.html`) | ✅ |
 | หน้าเว็บกดรันโค้ดจริง (`docs/playground.html`) | ✅ |
@@ -127,15 +128,20 @@ tests/
   sample_webapp.c ตัวอย่างหน้าตาเหมือนโค้ดจริง (pool/stats ล็อกสวนกัน) ใช้ barrier เช่นกัน
   two_pairs.c    deadlock 2 วงพร้อมกัน — ต้องรายงานครบทั้งสองวง
   cycle3.c       deadlock 3 thread วนเป็นวง a -> b -> c -> a (barrier ให้เกิดทุกครั้ง)
+  condvar.c      สอง thread ผลัดกันด้วย condvar ไม่มี deadlock — ต้องไม่มีรายงาน และเตือนแค่ครั้งเดียว
+  robust.c       robust mutex ที่เจ้าของตาย (EOWNERDEAD) แล้ว deadlock ผ่านตัวนั้น — ต้องรายงาน
+  errcheck.c     unlock โดยคนที่ไม่ใช่เจ้าของ (EPERM) แล้ว deadlock ผ่านตัวนั้น — ต้องรายงาน
+  longcycle.c    วงยาว 70 thread — ต้องรายงานเป็น partial path ไม่ปิดวงปลอม
   bench.c        วัด overhead (make bench -> tests/logs/bench.txt)
   run_demo.sh    ลำดับขั้นตอน demo ตอนนำเสนอ พร้อมเงื่อนไขผ่าน/ไม่ผ่าน
+  run_regress.sh regression test ของกรณีขอบ (robust / errcheck / longcycle / condvar) — make regress
   logs/          ผลรันจริงที่อ้างใน README (env, test matrix, demo)
 docs/
   overview.html    สไลด์/หน้าสรุปโปรเจ็ค (เปิดในเบราว์เซอร์)
   banker.html      ซิมูเลเตอร์ Banker's Algorithm — deadlock avoidance
   playground.html  หน้าเครื่องมือ — แนบไฟล์ C หรือวางโค้ดแล้วกดรันได้จริง
   design.md        บันทึกการออกแบบและข้อจำกัด
-  fix-report.md    รายงานการแก้ Phase 0-4.1: เจออะไร ทำอะไร หลักฐานอยู่ไหน
+  fix-report.md    รายงานการแก้ Phase 0-5: เจออะไร ทำอะไร หลักฐานอยู่ไหน
 tools/
   playground.py    เซิร์ฟเวอร์ท้องถิ่นที่ compile + รันโค้ดให้หน้า playground
 ```
@@ -164,6 +170,7 @@ glibc dynamic linker จึงใช้บน Windows ตรง ๆ ไม่ไ
 make                 # ได้ build/libdetect.so และโปรแกรมทดสอบ
 make tests           # build เฉพาะโปรแกรมทดสอบ
 make bench           # วัด overhead (ผลเขียนลง tests/logs/bench.txt)
+make regress         # regression test ของกรณีขอบที่เคยแก้ (exit 0 = ผ่านหมด)
 make clean
 ```
 
@@ -211,6 +218,8 @@ bash tests/run_demo.sh --no-pause # รันรวดเดียว — exit 0
 - `run_demo.sh --no-pause` ผ่านทุกขั้น และคืน exit 1 จริงเมื่อชี้ไปที่ .so ที่ไม่มีอยู่
   ([`phase2_run_demo_*.txt`](tests/logs/))
 - cycle 70 thread รายงานเป็น partial path ไม่ปิดวงปลอม ([`phase2_partial_cycle.txt`](tests/logs/phase2_partial_cycle.txt))
+- `make regress` ผ่านทุกข้อ (robust / errcheck / longcycle / condvar) และแต่ละข้อ **ไม่ผ่าน**
+  เมื่อถอย fix ของข้อนั้นออกชั่วคราว = เทสจับบั๊กได้จริง ([`phase5_regress.txt`](tests/logs/phase5_regress.txt))
 - overhead (`make bench`, i9-13900H บน WSL2, median 15 รอบ × 1,000,000 คู่ lock+unlock —
   [`bench.txt`](tests/logs/bench.txt))
 
@@ -237,6 +246,12 @@ bash tests/run_demo.sh --no-pause # รันรวดเดียว — exit 0
 - **ไม่รองรับ** condition variable · `pthread_mutex_timedlock` · rwlock · semaphore ·
   recursive mutex (ล็อกซ้ำจะนับเป็นครั้งเดียว) · process-shared mutex · static binary ·
   `fork()` แบบไม่ `exec` (TID ที่ cache ไว้จะผิด)
+- **โปรแกรมที่ใช้ condition variable** — `pthread_cond_wait` ปล่อย/ล็อก mutex คืนภายใน glibc
+  โดยไม่ผ่านเครื่องมือ ตารางจึงจดเจ้าของ mutex ผิดคนเป็นช่วง ๆ ผลคือ:
+  เตือน `ปลด mutex ที่ตารางจดว่า ... ถืออยู่` **ครั้งเดียว** (ที่เหลือดูได้ด้วย `DD_VERBOSE=1`) และ
+  **อาจตรวจไม่เจอ** deadlock ที่ผ่าน mutex ตัวนั้น — ไม่ทำให้รายงาน deadlock ปลอม
+  เพราะ thread ที่อยู่ใน `cond_wait` ไม่มี wait edge จึงอยู่ใน cycle ไม่ได้
+  ([`phase5_condvar.txt`](tests/logs/phase5_condvar.txt))
 - **รายงานได้สูงสุด 16 cycle ต่อการตรวจหนึ่งรอบ** (`DD_MAX_CYCLES`) วงที่เกินจะไม่ถูกรายงานในรอบนั้น
   หน้า playground แสดงรายงานแค่วงสุดท้ายในภาพ (stderr ดิบยังมีครบทุกวง)
 - **ตารางมีขนาดจำกัด** (รอได้ 256 thread · ถือได้ 1024 mutex · รายงาน cycle ได้ยาวสุด 64)

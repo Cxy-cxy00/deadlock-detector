@@ -1,0 +1,15 @@
+# ข้อ 5.3 — กดปุ่มบนหน้า docs/playground.html จริงด้วย headless Chromium (Playwright)
+# make playground -> เลือกตัวอย่างทีละตัว -> กด 'รันแบบปกติ' และ 'รันผ่านเครื่องมือ' · ตัดที่ 3 วินาที
+# คอลัมน์ท้าย = ข้อความที่หน้าเว็บแสดงจริง · glibc 2.39 · Chromium headless
+
+bank     plain  | outcome=timeout | หน้าเว็บ: ค้าง รันแบบปกติ · ถูกตัดที่ 3 วินาที | ไม่มีรายงาน
+bank     detect | outcome=timeout | หน้าเว็บ: ค้าง รันผ่านเครื่องมือ · ถูกตัดที่ 3 วินาที | พบ deadlock
+cycle3   plain  | outcome=timeout | หน้าเว็บ: ค้าง รันแบบปกติ · ถูกตัดที่ 3 วินาที | ไม่มีรายงาน
+cycle3   detect | outcome=timeout | หน้าเว็บ: ค้าง รันผ่านเครื่องมือ · ถูกตัดที่ 3 วินาที | พบ deadlock
+self     plain  | outcome=timeout | หน้าเว็บ: ค้าง รันแบบปกติ · ถูกตัดที่ 3 วินาที | ไม่มีรายงาน
+self     detect | outcome=timeout | หน้าเว็บ: ค้าง รันผ่านเครื่องมือ · ถูกตัดที่ 3 วินาที | พบ deadlock
+ordered  plain  | outcome=ok | หน้าเว็บ: จบเอง รันแบบปกติ · exit code 0 | ไม่มีรายงาน
+ordered  detect | outcome=ok | หน้าเว็บ: จบเอง รันผ่านเครื่องมือ · exit code 0 | ไม่พบ deadlock
+counter  plain  | outcome=ok | หน้าเว็บ: จบเอง รันแบบปกติ · exit code 0 | ไม่มีรายงาน
+counter  detect | outcome=ok | หน้าเว็บ: จบเอง รันผ่านเครื่องมือ · exit code 0 | ไม่พบ deadlock
+page errors: ไม่มี

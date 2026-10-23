@@ -81,6 +81,17 @@ stderr บอกว่า `ld.so: object '/mnt/c/Users/frank/Documents/Bachelor'
 `git archive --format=zip HEAD` (`663cbb8`) → แตกในโฟลเดอร์ใหม่ → `make` ไม่มี warning →
 `bash tests/run_demo.sh --no-pause` **ผ่านทุกขั้น exit 0** (`phase4_clean_zip.txt`) · commit `88853d1`
 
+## Phase 5 — หลังรีวิวรอบสอง (หลัง merge PR #1)
+
+ทดสอบบน**อีกเครื่อง**: glibc 2.39 · gcc 13.3.0 · x86-64 (คนละรุ่นกับ env.txt) — `make` ไม่มี warning,
+`run_demo.sh --no-pause` และ `--smoke` ผ่านทุกขั้น, bank preload 10/10, เลขบรรทัด 65/70/89/94 ตรง
+
+| ข้อ | เจออะไร / ทำไมต้องแก้ | ทำอะไร | ตรวจยังไง ผลเป็นอย่างไร | commit |
+| --- | --- | --- | --- | --- |
+| 5.1 | โปรแกรม condvar ธรรมดา (ping-pong 2 thread ไม่มี deadlock) ได้ **WARNING ~3,500 บรรทัด** — `pthread_cond_wait` ปล่อย/ล็อก mutex คืนภายใน glibc ไม่ผ่าน wrapper ตารางจึงจดเจ้าของผิดคน แล้วทุก unlock ตกกรณี `holder != t` ของข้อ 2.4 | เตือนครั้งแรกพร้อมบอกสาเหตุ ครั้งถัดไปเป็น `dd_dbgf` · พฤติกรรมตารางเหมือนเดิม (ไม่เพิ่ม feature condvar) · `tests/condvar.c` · Limitations ใน README / overview.html | ก่อนแก้ 3567 บรรทัด → หลังแก้ 1 บรรทัด 5/5 รอบ ไม่มีรายงาน deadlock (`phase5_condvar.txt`) · ไล่โค้ดแล้ว: thread ใน `cond_wait` ไม่มี wait edge จึงไม่ทำให้เกิด cycle ปลอม ผลเสียคืออาจตรวจไม่เจอ | `290903a` |
+| 5.2 | โปรแกรมทดสอบของ 2.3 / 2.4 / 2.7 อยู่นอก repo — แก้โค้ดภายหลังแล้วไม่มีอะไรจับได้ | `robust.c` · `errcheck.c` · `longcycle.c` · `run_regress.sh` รวม condvar ด้วย · `make regress` · ทุกตัวใช้ barrier | ผ่านทุกข้อ · **ถอย fix ทีละข้อชั่วคราวแล้วข้อนั้นไม่ผ่านทุกครั้ง** = เทสจับบั๊กได้จริง (`phase5_regress.txt`) | `75b8e9d` |
+| 5.3 | ตัวอย่าง bank / cycle3 ใน playground ยังใช้ `usleep` แต่ comment บอก "ค้างทุกครั้ง" · ตารางข้อจำกัดในหน้าเว็บยังใช้คำที่ 2.9 ระบุว่าอ้างเกินจริง · ปุ่มยังไม่เคยกดจริง | bank / cycle3 ใช้ barrier · ordered คง `usleep` พร้อมเหตุผล · ตารางข้อจำกัดตรงกับ README | compile ด้วย flag ของ playground.py ไม่มี warning · bank 20/20, cycle3 20/20 (`phase5_playground_presets.txt`) · **กดปุ่มจริง**ด้วย headless Chromium 5 ตัวอย่าง × 2 ปุ่ม ถูก 10/10 ไม่มี JS error (`phase5_playground_ui.txt`) | `f6db42c` |
+
 ## Test matrix ก่อน / หลัง
 
 | กรณี | baseline (path มีช่องว่าง) | baseline (`~/dd`) | หลัง Phase 1 | หลัง Phase 2 |
@@ -108,9 +119,9 @@ stderr บอกว่า `ld.so: object '/mnt/c/Users/frank/Documents/Bachelor'
 
 ## ยังค้าง
 
-- **4.2–4.4** ซ้อมและ build ใหม่บนเครื่องที่จะใช้ present จริง · ทำ PDF (ชื่อ + รหัสนิสิตทุกสไลด์, slide Limitations ต้องตรงกับ README) · ซ้อมจับเวลา 2 รอบให้จบใน 9:30 นาที
-- ตัวอย่าง bank และ cycle3 ใน `docs/playground.html` ยังใช้ `usleep` แต่ comment บอกว่า "ค้างทุกครั้ง" — ยังอ้างเกินจริงอยู่ (ไม่ได้แก้เพราะ spec ห้ามขยาย playground)
-- โปรแกรมทดสอบชั่วคราวของข้อ 2.3 / 2.4 / 2.7 ไม่ได้อยู่ใน repo ผลที่ได้บันทึกไว้ในรายงานนี้และใน commit message
-- ปุ่มบนหน้า `playground.html` ยังไม่ได้ลองกดจริง (ตรวจแค่ API กับ syntax ของ JS)
+- **4.2–4.4** ซ้อมและ build ใหม่บนเครื่องที่จะใช้ present จริง · ทำ PDF (ชื่อ + รหัสนิสิตทุกสไลด์, slide Limitations ต้องตรงกับ README — มีข้อ condvar เพิ่มจาก 5.1) · ซ้อมจับเวลา 2 รอบให้จบใน 9:30 นาที
 - commit ของงานนี้ลงท้ายด้วย `Co-Authored-By: Claude` ถ้าวิชาไม่ต้องการบรรทัดนี้ต้องแก้ก่อนส่ง
 - เลข thread id และที่อยู่ mutex ในรายงานเปลี่ยนทุกครั้งที่รัน ตัวอย่างใน README เป็นของรอบหนึ่ง
+- ~~ตัวอย่าง bank / cycle3 ใน playground ใช้ `usleep`~~ แก้แล้วใน 5.3
+- ~~โปรแกรมทดสอบชั่วคราวของ 2.3 / 2.4 / 2.7 ไม่อยู่ใน repo~~ เป็น `make regress` แล้วใน 5.2
+- ~~ปุ่มบนหน้า playground ยังไม่ได้ลองกดจริง~~ กดจริงแล้วใน 5.3 (headless Chromium บน Linux — ยังไม่ได้ลองบนเบราว์เซอร์ของเครื่องที่จะ present)
