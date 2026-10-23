@@ -102,6 +102,7 @@ T1 กับ T2 ค้างอยู่ทั้งคู่ แต่ detector
 | รายงาน `file:line` (PIE + `-g` + `addr2line`) | ✅ |
 | cycle ยาวเกิน 64 thread: รายงานเป็น partial path ไม่ปิดวงปลอม | ✅ |
 | export Graphviz (`DD_DOT_OUT`) | ✅ |
+| บันทึกเหตุการณ์ทีละขั้น (`DD_TRACE`) + timeline ในหน้า playground | ✅ (เก็บ 5,000 เหตุการณ์ lock แรก) |
 | หลาย cycle พร้อมกัน: รายงานทุกวงในการตรวจรอบเดียว วงละครั้ง · `.dot` รวมทุกวง | ✅ (สูงสุด 16 วง) |
 | โปรแกรมทดสอบ `bank` / `no_deadlock` / `sample_webapp` / `two_pairs` / `cycle3` | ✅ |
 | regression test `make regress` (robust / errcheck / longcycle / condvar) | ✅ |
@@ -121,6 +122,7 @@ src/
   graph.c/h      wait-for graph + cycle detection (DFS)        — คนที่ 3
   detector.c/h   detector thread                               — คนที่ 4
   report.c/h     รายงาน + export Graphviz + map file:line      — คนที่ 5
+  trace.c/h      จดเหตุการณ์ทีละขั้นลงไฟล์ (DD_TRACE) ให้หน้า playground เล่นเป็น timeline
 tests/
   bank.c         โปรแกรมโอนเงินที่ deadlock ทุกครั้ง — pthread_barrier บังคับให้ทั้งสอง thread
                  ถือ lock ตัวแรกครบก่อนไปขอตัวที่สอง (ไม่ได้พึ่งจังหวะ sleep)
@@ -134,7 +136,7 @@ tests/
   longcycle.c    วงยาว 70 thread — ต้องรายงานเป็น partial path ไม่ปิดวงปลอม
   bench.c        วัด overhead (make bench -> tests/logs/bench.txt)
   run_demo.sh    ลำดับขั้นตอน demo ตอนนำเสนอ พร้อมเงื่อนไขผ่าน/ไม่ผ่าน
-  run_regress.sh regression test ของกรณีขอบ (robust / errcheck / longcycle / condvar) — make regress
+  run_regress.sh regression test ของกรณีขอบ (robust / errcheck / longcycle / condvar / trace) — make regress
   logs/          ผลรันจริงที่อ้างใน README (env, test matrix, demo)
 docs/
   overview.html    สไลด์/หน้าสรุปโปรเจ็ค (เปิดในเบราว์เซอร์)
@@ -150,6 +152,11 @@ tools/
 
 วางโค้ด C แล้วกดรันผ่านเครื่องมือ เห็นรายงาน เห็น wait-for graph เป็นภาพ
 และเทียบ "รันแบบปกติ" กับ "รันผ่านเครื่องมือ" ได้ในหน้าเดียว
+
+แผง **การทำงานทีละขั้น** เล่นย้อนเหตุการณ์จริงที่ library จดไว้ระหว่างรัน (`DD_TRACE`):
+ใครล็อกอะไรได้ ใครต้องรอใคร edge ใน wait-for graph เกิดตอนไหน และ detector ตื่นมาตรวจกี่รอบก่อนเจอวง
+แต่ละขั้นแสดงภาพกราฟ ตาราง holds / waits ของเครื่องมือ ณ ตอนนั้น และไฮไลต์บรรทัดในโค้ด
+กดเล่นอัตโนมัติ เลื่อนทีละขั้นด้วย ← → หรือกด "ไปตอนเจอวง" ได้
 
 ```bash
 make playground
@@ -181,6 +188,9 @@ LD_PRELOAD=./build/libdetect.so ./your_program
 # export เป็นภาพ cycle
 DD_DOT_OUT=cycle.dot LD_PRELOAD=./build/libdetect.so ./build/bank
 dot -Tpng cycle.dot -o cycle.png
+
+# จดเหตุการณ์ทีละขั้น (wait / acq / rel / รอบตรวจของ detector) — รูปแบบไฟล์อยู่ที่หัว src/trace.h
+DD_TRACE=trace.txt LD_PRELOAD=./build/libdetect.so ./build/bank
 ```
 
 โปรแกรมเป้าหมายต้อง compile ด้วย `-g` ถ้าอยากให้รายงานชี้เลขบรรทัดได้
@@ -252,6 +262,9 @@ bash tests/run_demo.sh --no-pause # รันรวดเดียว — exit 0
   **อาจตรวจไม่เจอ** deadlock ที่ผ่าน mutex ตัวนั้น — ไม่ทำให้รายงาน deadlock ปลอม
   เพราะ thread ที่อยู่ใน `cond_wait` ไม่มี wait edge จึงอยู่ใน cycle ไม่ได้
   ([`phase5_condvar.txt`](tests/logs/phase5_condvar.txt))
+- **timeline (`DD_TRACE`) เก็บเหตุการณ์ lock ได้ 5,000 ตัวแรก** โปรแกรมที่ล็อกถี่กว่านั้นจะเห็นแค่ช่วงต้น
+  (รอบตรวจของ detector ยังจดครบทุกรอบ) · `DD_TRACE` ไม่ตกทอดไปยัง process ลูก (library `unsetenv` ทิ้งตอนโหลด)
+  · ปิดอยู่ไม่มี overhead เพิ่ม ([`phase6_bench_ab.txt`](tests/logs/phase6_bench_ab.txt))
 - **รายงานได้สูงสุด 16 cycle ต่อการตรวจหนึ่งรอบ** (`DD_MAX_CYCLES`) วงที่เกินจะไม่ถูกรายงานในรอบนั้น
   หน้า playground แสดงรายงานแค่วงสุดท้ายในภาพ (stderr ดิบยังมีครบทุกวง)
 - **ตารางมีขนาดจำกัด** (รอได้ 256 thread · ถือได้ 1024 mutex · รายงาน cycle ได้ยาวสุด 64)

@@ -92,6 +92,18 @@ stderr บอกว่า `ld.so: object '/mnt/c/Users/frank/Documents/Bachelor'
 | 5.2 | โปรแกรมทดสอบของ 2.3 / 2.4 / 2.7 อยู่นอก repo — แก้โค้ดภายหลังแล้วไม่มีอะไรจับได้ | `robust.c` · `errcheck.c` · `longcycle.c` · `run_regress.sh` รวม condvar ด้วย · `make regress` · ทุกตัวใช้ barrier | ผ่านทุกข้อ · **ถอย fix ทีละข้อชั่วคราวแล้วข้อนั้นไม่ผ่านทุกครั้ง** = เทสจับบั๊กได้จริง (`phase5_regress.txt`) | `75b8e9d` |
 | 5.3 | ตัวอย่าง bank / cycle3 ใน playground ยังใช้ `usleep` แต่ comment บอก "ค้างทุกครั้ง" · ตารางข้อจำกัดในหน้าเว็บยังใช้คำที่ 2.9 ระบุว่าอ้างเกินจริง · ปุ่มยังไม่เคยกดจริง | bank / cycle3 ใช้ barrier · ordered คง `usleep` พร้อมเหตุผล · ตารางข้อจำกัดตรงกับ README | compile ด้วย flag ของ playground.py ไม่มี warning · bank 20/20, cycle3 20/20 (`phase5_playground_presets.txt`) · **กดปุ่มจริง**ด้วย headless Chromium 5 ตัวอย่าง × 2 ปุ่ม ถูก 10/10 ไม่มี JS error (`phase5_playground_ui.txt`) | `f6db42c` |
 
+## Phase 6 — timeline ทีละขั้นในหน้า playground
+
+ทดสอบบน WSL2 kernel 6.18.33.2 · x86-64 — `make` ไม่มี warning, `run_demo.sh --no-pause` ผ่านทุกขั้น
+(`phase6_run_demo.txt`), `make regress` ผ่านทุกข้อรวมข้อใหม่ (`phase6_regress.txt`)
+
+| ข้อ | เจออะไร / ทำไมต้องแก้ | ทำอะไร | ตรวจยังไง ผลเป็นอย่างไร |
+| --- | --- | --- | --- |
+| 6.1 | หน้า playground โชว์แค่ผลสุดท้าย (รายงาน + ภาพวง) ไม่เห็นว่าเครื่องมือตรวจเจอ**อย่างไร** | `src/trace.c/h`: env `DD_TRACE` จดเหตุการณ์ wait / unwait / acq / rel / relx / check / cycle ลงไฟล์ ใต้ `dd_state_lock` · `playground.py` อ่านไฟล์ แปลง pc เป็นบรรทัดด้วย `addr2line` ครั้งเดียว · หน้าเว็บเล่นย้อนทีละขั้น: ภาพกราฟ ตาราง holds / waits ไฮไลต์บรรทัด ปุ่มเล่น / ไปตอนเจอวง | headless Edge 5 ตัวอย่าง ไม่มี JS error ที่ 1100 px และ 390 px โหมดสว่าง / มืด · bank ได้บรรทัด 65 / 89 / 94 / 70 ตรงกับรายงาน (`phase6_playground_ui.txt`) |
+| 6.2 | `addr2line` ที่ report.c เรียกได้ `LD_PRELOAD` + `DD_TRACE` ไปด้วย แล้วเปิดไฟล์ trace ด้วย `O_TRUNC` ลบ timeline ทิ้ง | `unsetenv("DD_TRACE")` ใน constructor · ข้อ trace ใน `run_regress.sh` | ถอย `unsetenv` ออกชั่วคราว → ข้อ "wait ครบ 4 ครั้ง" ได้ 0 ไม่ผ่าน · ใส่คืน → ผ่าน |
+| 6.3 | รอบแรกช้าลงราว 10% **ทั้งที่ไม่ได้เปิด** trace (function call ข้ามไฟล์ 4 ครั้งต่อคู่ lock+unlock) | เช็ค `DD_TRACING()` ที่จุดเรียกใน `state.c` (`extern int` แบบ hidden) | A/B กับ library ก่อน Phase 6 รันสลับกัน: uncontended 97–99 ns ทั้งคู่ · contended 364–374 ns ทั้งคู่ (`phase6_bench_ab.txt`) |
+| 6.4 | อีก thread แทรกกลาง wait → unwait → acq ทำให้ "ล็อกได้ทันที" แสดงเป็น "ต้องรอ" · ลูกศรสองทิศทับกัน | รวมขั้นจากเหตุการณ์ถัดไปของ thread เดียวกัน · แยกความสูง / ฝั่งของเส้นโค้ง | ภาพหลังแก้ใน `phase6_playground_ui.txt` |
+
 ## Test matrix ก่อน / หลัง
 
 | กรณี | baseline (path มีช่องว่าง) | baseline (`~/dd`) | หลัง Phase 1 | หลัง Phase 2 |
@@ -124,4 +136,6 @@ stderr บอกว่า `ld.so: object '/mnt/c/Users/frank/Documents/Bachelor'
 - เลข thread id และที่อยู่ mutex ในรายงานเปลี่ยนทุกครั้งที่รัน ตัวอย่างใน README เป็นของรอบหนึ่ง
 - ~~ตัวอย่าง bank / cycle3 ใน playground ใช้ `usleep`~~ แก้แล้วใน 5.3
 - ~~โปรแกรมทดสอบชั่วคราวของ 2.3 / 2.4 / 2.7 ไม่อยู่ใน repo~~ เป็น `make regress` แล้วใน 5.2
+- `tests/logs/bench.txt` ยังเป็นผลของเครื่องเดิม (kernel 6.6) ตัวเลขใน README มาจากไฟล์นั้น ไม่ได้วัดใหม่ใน Phase 6
+  (Phase 6 วัดแค่ A/B ว่า trace ไม่เพิ่ม overhead)
 - ~~ปุ่มบนหน้า playground ยังไม่ได้ลองกดจริง~~ กดจริงแล้วใน 5.3 (headless Chromium บน Linux — ยังไม่ได้ลองบนเบราว์เซอร์ของเครื่องที่จะ present)
