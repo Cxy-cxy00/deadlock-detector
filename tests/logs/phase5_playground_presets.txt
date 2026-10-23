@@ -1,0 +1,19 @@
+# ข้อ 5.3 — ตัวอย่างใน docs/playground.html ดึงออกมา compile + รันตรง ๆ (ไม่ผ่านหน้าเว็บ)
+# gcc -std=c11 -Wall -Wextra -g -O0 -pthread (flag เดียวกับ tools/playground.py) · glibc 2.39
+
+## bank  (compile warning: 0)
+preload 20 รอบ: ค้าง (124) + มีรายงาน 20/20
+[DEADLOCK DETECTED] 2 threads in cycle
+
+## cycle3  (compile warning: 0)
+preload 20 รอบ: ค้าง (124) + มีรายงาน 20/20
+[DEADLOCK DETECTED] 3 threads in cycle
+
+## self  (compile warning: 0)
+exit=124 [DEADLOCK DETECTED] 1 threads in cycle
+
+## ordered  (compile warning: 0)
+exit=0 · DEADLOCK: 0 · alice=1100 bob=900 รวม=2000
+
+## counter  (compile warning: 0)
+exit=0 · DEADLOCK: 0 · counter=40000 (ต้องได้ 40000 เป๊ะ)

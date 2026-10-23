@@ -364,10 +364,12 @@ make playground</code></pre>
   <div class="tablewrap">
   <table>
     <tr><th>เรื่อง</th><th>รายละเอียด</th></tr>
-    <tr><td>ดักเฉพาะ <code>pthread_mutex_*</code></td><td>rwlock, semaphore, condition variable ยังไม่รองรับ</td></tr>
-    <tr><td>ต้อง dynamic link</td><td>binary ที่ลิงก์ <code>libpthread</code> แบบ static ใช้ไม่ได้</td></tr>
+    <tr><td>NORMAL mutex เท่านั้น</td><td>interpose แค่ <code>pthread_mutex_lock</code> / <code>trylock</code> / <code>unlock</code> · ไม่รองรับ condvar, <code>timedlock</code>, rwlock, semaphore, process-shared mutex</td></tr>
+    <tr><td>โปรแกรมที่ใช้ condvar</td><td>เตือนเรื่องเจ้าของ mutex ไม่ตรงครั้งเดียว และอาจตรวจไม่เจอ deadlock ที่ผ่าน mutex ตัวนั้น (ไม่รายงานปลอม)</td></tr>
+    <tr><td>ต้อง dynamic link</td><td>static binary ไม่มีรายงานเลย เพราะ <code>LD_PRELOAD</code> ไม่มีผล</td></tr>
+    <tr><td>หลาย cycle พร้อมกัน</td><td>stderr ดิบมีครบทุกวง (สูงสุด 16 ต่อรอบ) แต่หน้านี้วาดแค่วงสุดท้าย</td></tr>
     <tr><td>detection ไม่ใช่ prevention</td><td>บอกว่าค้าง<strong>ที่ไหน</strong> ไม่ได้ทำให้ไม่ค้าง</td></tr>
-    <tr><td>ชี้บรรทัดต้องมี <code>-g</code></td><td>ไม่มี debug info ก็ยังบอกได้ว่าใครค้างกับใคร แต่แสดงเป็น <code>pc</code> ดิบ</td></tr>
+    <tr><td>ชี้บรรทัดต้องมี <code>-g</code> + PIE</td><td>ไม่มี debug info หรือเป็น non-PIE ก็ยังบอกได้ว่าใครค้างกับใคร แต่แสดงเป็น <code>pc</code> ดิบ</td></tr>
     <tr><td>ไม่รองรับ recursive mutex</td><td>thread เดิมล็อกตัวเดิมซ้ำจะนับเป็นครั้งเดียว</td></tr>
     <tr><td>Linux เท่านั้น</td><td><code>LD_PRELOAD</code> เป็นกลไกของ glibc dynamic linker</td></tr>
   </table>
@@ -388,24 +390,25 @@ make playground</code></pre>
   var PRESETS = [
     {
       name: "bank — deadlock 2 thread (ตัวหลัก)",
-      code: String.raw`/* โอนเงินสองทิศทางพร้อมกัน ล็อกสลับลำดับกัน -> ค้างแน่นอน
- * usleep คั่นไว้เพื่อบังคับให้ทั้งคู่คว้า lock ตัวแรกได้ก่อน
- * แล้วไปชนกันที่ตัวที่สองพร้อมกัน จึงค้างทุกครั้ง ไม่ใช่สุ่ม
+      code: String.raw`/* โอนเงินสองทิศทางพร้อมกัน ล็อกสลับลำดับกัน -> ค้างทุกครั้ง
+ * pthread_barrier คั่นระหว่างสอง lock: ไม่มีใครผ่าน barrier จนกว่าทั้งคู่
+ * จะถือ lock ตัวแรกของตัวเองแล้ว พอไปขอตัวที่สองจึงชนกันแน่นอน ไม่ใช่สุ่ม
+ * (usleep แค่ "น่าจะ" นานพอ ไม่ได้รับประกันแบบนี้)
  */
 #define _DEFAULT_SOURCE
 #include <pthread.h>
 #include <stdio.h>
-#include <unistd.h>
 
 typedef struct { long balance; pthread_mutex_t lock; } account_t;
 static account_t alice = { 1000, PTHREAD_MUTEX_INITIALIZER };
 static account_t bob   = { 1000, PTHREAD_MUTEX_INITIALIZER };
+static pthread_barrier_t both_hold_first;
 
 static void *alice_to_bob(void *arg) {
     (void)arg;
     printf("[t1] lock alice\n"); fflush(stdout);
     pthread_mutex_lock(&alice.lock);
-    usleep(100000);
+    pthread_barrier_wait(&both_hold_first);
     printf("[t1] lock bob ...\n"); fflush(stdout);
     pthread_mutex_lock(&bob.lock);
     alice.balance -= 100; bob.balance += 100;
@@ -419,7 +422,7 @@ static void *bob_to_alice(void *arg) {
     (void)arg;
     printf("[t2] lock bob\n"); fflush(stdout);
     pthread_mutex_lock(&bob.lock);
-    usleep(100000);
+    pthread_barrier_wait(&both_hold_first);
     printf("[t2] lock alice ...\n"); fflush(stdout);
     pthread_mutex_lock(&alice.lock);
     bob.balance -= 200; alice.balance += 200;
@@ -431,6 +434,7 @@ static void *bob_to_alice(void *arg) {
 
 int main(void) {
     pthread_t t1, t2;
+    pthread_barrier_init(&both_hold_first, NULL, 2);
     pthread_create(&t1, NULL, alice_to_bob, NULL);
     pthread_create(&t2, NULL, bob_to_alice, NULL);
     pthread_join(t1, NULL);
@@ -442,20 +446,22 @@ int main(void) {
     },
     {
       name: "cycle3 — deadlock 3 thread วนเป็นวง",
-      code: String.raw`/* T1 รอ T2 รอ T3 รอ T1 — พิสูจน์ว่า DFS จับ cycle ยาวกว่า 2 ได้ */
+      code: String.raw`/* T1 รอ T2 รอ T3 รอ T1 — พิสูจน์ว่า DFS จับ cycle ยาวกว่า 2 ได้
+ * barrier (count = 3) ให้ทั้งสามถือ lock ตัวแรกครบก่อน จึงค้างเป็นวงทุกครั้ง
+ */
 #define _DEFAULT_SOURCE
 #include <pthread.h>
 #include <stdio.h>
-#include <unistd.h>
 
 static pthread_mutex_t a = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t b = PTHREAD_MUTEX_INITIALIZER;
 static pthread_mutex_t c = PTHREAD_MUTEX_INITIALIZER;
+static pthread_barrier_t all_hold_first;
 
 static void *t1(void *x) {
     (void)x;
     pthread_mutex_lock(&a);
-    usleep(150000);
+    pthread_barrier_wait(&all_hold_first);
     printf("[t1] รอ b\n"); fflush(stdout);
     pthread_mutex_lock(&b);
     return NULL;
@@ -463,7 +469,7 @@ static void *t1(void *x) {
 static void *t2(void *x) {
     (void)x;
     pthread_mutex_lock(&b);
-    usleep(150000);
+    pthread_barrier_wait(&all_hold_first);
     printf("[t2] รอ c\n"); fflush(stdout);
     pthread_mutex_lock(&c);
     return NULL;
@@ -471,7 +477,7 @@ static void *t2(void *x) {
 static void *t3(void *x) {
     (void)x;
     pthread_mutex_lock(&c);
-    usleep(150000);
+    pthread_barrier_wait(&all_hold_first);
     printf("[t3] รอ a\n"); fflush(stdout);
     pthread_mutex_lock(&a);
     return NULL;
@@ -479,6 +485,7 @@ static void *t3(void *x) {
 
 int main(void) {
     pthread_t t[3];
+    pthread_barrier_init(&all_hold_first, NULL, 3);
     pthread_create(&t[0], NULL, t1, NULL);
     pthread_create(&t[1], NULL, t2, NULL);
     pthread_create(&t[2], NULL, t3, NULL);
@@ -511,8 +518,9 @@ int main(void) {
     },
     {
       name: "ordered — เวอร์ชันที่แก้แล้ว (ต้องไม่มีรายงาน)",
-      code: String.raw`/* โค้ดเดียวกับ bank ทุกอย่าง หน่วงเวลาเท่ากันเป๊ะ
- * ต่างแค่ล็อกตามลำดับสากลเสมอ (เรียงตาม id ของบัญชี)
+      code: String.raw`/* โอนเงินสวนทางกันเหมือน bank ต่างแค่ล็อกตามลำดับสากลเสมอ (เรียงตาม id ของบัญชี)
+ * ใช้ usleep แทน barrier โดยตั้งใจ: ถ้าใส่ barrier ระหว่างสอง lock อีก thread
+ * จะติดอยู่ที่ lock ตัวแรก (ตัวเดียวกัน) มาไม่ถึง barrier แล้วค้างเพราะ barrier เอง
  * -> ทำลายเงื่อนไข circular wait ของ Coffman = จบเองไม่ค้าง
  * (ไม่เทียบ pointer ของ object คนละตัวด้วย < เพราะเป็น undefined behavior ใน ISO C)
  */
