@@ -154,6 +154,50 @@ footer{color:var(--muted); font-size:13px; text-align:center; margin-top:28px}
 .codekey{display:flex; flex-wrap:wrap; gap:14px; font-size:13px; color:var(--muted); margin-top:4px}
 .codekey i{display:inline-block; width:13px; height:13px; border-radius:4px; vertical-align:-2px; margin-right:5px}
 
+/* ---- timeline ทีละขั้น (DD_TRACE) ---- */
+.tl-bar{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:4px 0 10px}
+.tl-bar button{padding:7px 12px; font-size:13px}
+.tl-bar select{padding:6px 9px; font-size:13px}
+.tl-bar input[type=range]{flex:1 1 200px; min-width:0; accent-color:var(--accent2)}
+.tl-pos{font-family:"JetBrains Mono",ui-monospace,monospace; font-size:12.5px; color:var(--muted); white-space:nowrap}
+.tl-step{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--accent2);
+  border-radius:10px; padding:11px 14px; margin:8px 0 12px; min-height:92px}
+.tl-step.k-lock{border-left-color:var(--ok)}
+.tl-step.k-wait{border-left-color:var(--accent)}
+.tl-step.k-rel,.tl-step.k-check,.tl-step.k-recheck{border-left-color:var(--muted)}
+.tl-step.k-warn{border-left-color:var(--warn)}
+.tl-step.k-found{border-left-color:var(--accent); background:color-mix(in srgb, var(--accent) 9%, var(--card))}
+.tl-step .t{font-family:"JetBrains Mono",ui-monospace,monospace; font-size:12px; color:var(--muted)}
+.tl-step .what{font-size:16px; font-weight:600; margin:2px 0 3px}
+.tl-step .why{font-size:14px; color:var(--muted); margin:0}
+.tl-grid{display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); gap:12px; align-items:start}
+@media (max-width:760px){ .tl-grid{grid-template-columns:minmax(0,1fr)} }
+.tl-box{border:1px solid var(--line); border-radius:10px; background:var(--card); padding:10px 12px; margin-bottom:12px}
+.tl-box h4{margin:0 0 4px; font-size:12px; font-weight:600; color:var(--muted);
+  text-transform:uppercase; letter-spacing:.04em}
+.tl-box table{font-size:13px}
+.tl-box th,.tl-box td{padding:5px 8px}
+.tl-box .empty{font-size:13px; color:var(--muted); margin:4px 0}
+.tl-list{max-height:230px; overflow:auto; font-size:13px; border:1px solid var(--line);
+  border-radius:10px; background:var(--card); margin-top:4px}
+.tl-item{display:flex; gap:10px; padding:5px 12px; cursor:pointer; border-bottom:1px solid var(--line)}
+.tl-item:last-child{border-bottom:none}
+.tl-item:hover{background:var(--chip)}
+.tl-item.on{background:color-mix(in srgb, var(--accent2) 16%, transparent)}
+.tl-item .ti{font-family:"JetBrains Mono",ui-monospace,monospace; font-size:12px; color:var(--muted);
+  min-width:5.2em; text-align:right; flex:none}
+.tl-item.found .tx{color:var(--accent); font-weight:600}
+.codeview.tl{position:relative; max-height:280px; margin:0}
+.cline.current{box-shadow:inset 3px 0 0 var(--accent2); background:color-mix(in srgb, var(--accent2) 14%, transparent)}
+.cline .tagline:empty{display:none}
+.codeview.tl .tagline{position:sticky; right:8px}   /* บรรทัดยาวก็ยังเห็นป้าย */
+svg.tlg{display:block; width:100%; height:auto; margin:2px 0}
+svg.tlg text{font-variant-ligatures:none}   /* ไม่งั้น first->lock กลายเป็นลูกศร */
+svg.tlg .fresh{stroke-dasharray:620; stroke-dashoffset:620; animation:drawIn .6s ease forwards}
+svg.tlg .dim{opacity:.22}
+@keyframes fadeIn{from{opacity:0} to{opacity:1}}
+svg.tlg .fadein{animation:fadeIn .5s ease .35s both}
+
 /* ================= hero ================= */
 .hero{
   position:relative; overflow:hidden; margin-bottom:22px;
@@ -228,7 +272,7 @@ button.primary{padding:11px 22px; font-size:15px;
 button.primary:hover:not(:disabled){filter:brightness(1.08)}
 
 @media (prefers-reduced-motion: reduce){
-  .hero-art .edge,.hero-art .halo,#result > *,svg.graph path[marker-end],.badge.hang{
+  .hero-art .edge,.hero-art .halo,#result > *,svg.graph path[marker-end],.badge.hang,svg.tlg .fresh,svg.tlg .fadein{
     animation:none; stroke-dashoffset:0; opacity:1}
 }
 </style>
@@ -371,6 +415,7 @@ make playground</code></pre>
     <tr><td>detection ไม่ใช่ prevention</td><td>บอกว่าค้าง<strong>ที่ไหน</strong> ไม่ได้ทำให้ไม่ค้าง</td></tr>
     <tr><td>ชี้บรรทัดต้องมี <code>-g</code> + PIE</td><td>ไม่มี debug info หรือเป็น non-PIE ก็ยังบอกได้ว่าใครค้างกับใคร แต่แสดงเป็น <code>pc</code> ดิบ</td></tr>
     <tr><td>ไม่รองรับ recursive mutex</td><td>thread เดิมล็อกตัวเดิมซ้ำจะนับเป็นครั้งเดียว</td></tr>
+    <tr><td>timeline ทีละขั้น</td><td>เก็บเหตุการณ์ lock ได้ 5,000 ตัวแรก โปรแกรมที่ล็อกถี่กว่านั้นจะเห็นแค่ช่วงต้น (รอบตรวจของ detector ยังครบทุกรอบ)</td></tr>
     <tr><td>Linux เท่านั้น</td><td><code>LD_PRELOAD</code> เป็นกลไกของ glibc dynamic linker</td></tr>
   </table>
   </div>
@@ -770,6 +815,494 @@ int main(void) {
     return parts.join("");
   }
 
+  /* ------------------------------------------- timeline ทีละขั้น (DD_TRACE)
+   *
+   * server ส่งเหตุการณ์ดิบมา (wait / unwait / acq / rel / check / cycle — ดู src/trace.h)
+   * ตรงนี้เล่นย้อนทีละเหตุการณ์ด้วยกติกาเดียวกับ state.c แล้วเก็บ snapshot ของตารางทุกขั้น
+   * จะได้เห็นว่า "ตารางของเครื่องมือ" เปลี่ยนยังไง edge เกิดตอนไหน และ detector เจอวงรอบไหน
+   */
+  var detectorMs = 500;           /* อัปเดตจาก /api/status */
+  var RE_LOCKCALL = /pthread_mutex_(?:try)?lock\s*\(\s*&?\s*([^)]+?)\s*\)/;
+
+  function fmtTime(us) {
+    if (us < 1000) return "+" + us + " µs";
+    if (us < 1000000) return "+" + (us / 1000).toFixed(1) + " ms";
+    return "+" + (us / 1000000).toFixed(2) + " s";
+  }
+
+  function buildTimeline(data, code) {
+    var trace = data.trace;
+    if (!trace || !trace.events || !trace.events.length) return null;
+    var ev = trace.events;
+    var src = code.split("\n");
+
+    /* ---- ตั้งชื่อ thread / mutex ให้อ่านง่าย ----
+       ชื่อ mutex เอามาจากโค้ดบรรทัดที่ล็อกครั้งแรก เช่น pthread_mutex_lock(&alice.lock) -> alice.lock
+       หาไม่ได้หรือชื่อชนกัน (ฟังก์ชันเดียวล็อกคนละตัวผ่าน parameter) ถอยไปใช้ M1, M2, ... */
+    var tids = [], mutexes = [], expr = {}, owners = {};
+    function seeT(t) { if (tids.indexOf(t) < 0) tids.push(t); }
+    function seeM(m, line) {
+      if (mutexes.indexOf(m) < 0) mutexes.push(m);
+      var mm = line ? RE_LOCKCALL.exec(src[line - 1] || "") : null;
+      if (!mm) return;
+      var x = mm[1].replace(/\s+/g, "");
+      if (!expr[m]) expr[m] = x;
+      else if (expr[m] !== x) expr[m] = "?";          /* ตัวเดียวกันแต่ล็อกผ่านหลายชื่อ */
+      (owners[x] = owners[x] || {})[m] = 1;
+    }
+    var cycByRound = {};
+    ev.forEach(function (e) {
+      if (e.tid) { seeT(e.tid); seeM(e.mutex, e.line); }
+      if (e.holder) seeT(e.holder);
+      if (e.kind === "cycle") {
+        (cycByRound[e.round] = cycByRound[e.round] || []).push(e);
+        e.members.forEach(function (x) { seeT(x.tid); seeM(x.mutex, null); });
+      }
+    });
+    /* ใช้ชื่อจากโค้ดได้เฉพาะเมื่อ "ชื่อนั้นชี้ mutex ตัวเดียวตลอดการรัน"
+       เช่น first->lock ในฟังก์ชันที่รับ parameter ชี้คนละตัวในแต่ละครั้ง ใช้ไม่ได้ */
+    var names = {};
+    mutexes.forEach(function (m, i) {
+      var x = expr[m];
+      names[m] = x && x !== "?" && Object.keys(owners[x]).length === 1 ? x : "M" + (i + 1);
+    });
+    function T(t) { return "T" + t; }
+    function N(m) { return names[m] || shortMutex(m); }
+
+    /* ---- เล่นย้อนเหตุการณ์ ---- */
+    var holds = {}, waits = {}, waited = {};
+    var active = [];               /* วงที่ detector เจอในรอบตรวจล่าสุด */
+    var steps = [];
+    var firstT = {}, firstM = {};  /* thread / mutex โผล่ครั้งแรกที่ขั้นไหน (ก่อนนั้นวาดจาง) */
+
+    function touch(t, m) {
+      if (t && !(t in firstT)) firstT[t] = steps.length;
+      if (m && !(m in firstM)) firstM[m] = steps.length;
+    }
+    function copy(o) { var r = {}; for (var k in o) r[k] = o[k]; return r; }
+    function push(s) {
+      s.state = { holds: copy(holds), waits: copy(waits) };
+      s.cycles = active;
+      steps.push(s);
+      return s;
+    }
+    function cycleText(c) {
+      var ts = c.members.map(function (x) { return T(x.tid); });
+      return c.partial ? ts.join(" → ") + " → …" : ts.concat(ts[0]).join(" → ");
+    }
+
+    push({ kind: "start", us: 0,
+      what: "โหลด libdetect.so เข้าโปรแกรม",
+      why: "constructor หา pthread_mutex_* ตัวจริงด้วย dlsym แล้วสร้าง detector thread " +
+           "ที่จะตื่นมาตรวจทุก " + detectorMs + " ms — ตารางยังว่างอยู่" });
+
+    /* เหตุการณ์สองตัวถัดไปของ thread เดียวกัน (ข้าม thread อื่นที่แทรกเข้ามาระหว่างกลาง) */
+    function nextTwoOf(i, tid) {
+      var out = [];
+      for (var j = i + 1; j < ev.length && out.length < 2; j++)
+        if (ev[j].tid === tid) out.push(j);
+      return out;
+    }
+    var consumed = {};
+
+    for (var i = 0; i < ev.length; i++) {
+      var e = ev[i], h, s;
+      if (consumed[i]) continue;
+
+      if (e.kind === "wait") {
+        touch(e.tid, e.mutex);
+        /* mutex ว่าง แล้วเหตุการณ์ถัดไปของ thread นี้คือ unwait -> acq ตัวเดิม = ได้ทันที
+           รวมเป็นขั้นเดียว  ไม่งั้นถ้ามีอีก thread แทรกกลาง จะดูเหมือนต้องรอทั้งที่ไม่ได้รอ */
+        var nx = holds[e.mutex] ? [] : nextTwoOf(i, e.tid);
+        if (nx.length === 2 && ev[nx[0]].kind === "unwait" && ev[nx[1]].kind === "acq" &&
+            ev[nx[0]].mutex === e.mutex && ev[nx[1]].mutex === e.mutex) {
+          holds[e.mutex] = { tid: e.tid, line: ev[nx[1]].line };
+          push({ kind: "lock", us: ev[nx[1]].us, tid: e.tid, mutex: e.mutex, line: e.line,
+            what: T(e.tid) + " ล็อก " + N(e.mutex) + " ได้ทันที",
+            why: N(e.mutex) + " ว่างอยู่ — เครื่องมือจด wait ไว้ชั่วครู่ แล้วย้ายไปตาราง holds ว่า " +
+                 T(e.tid) + " เป็นเจ้าของ" });
+          consumed[nx[0]] = consumed[nx[1]] = 1;
+          continue;
+        }
+        waits[e.tid] = { mutex: e.mutex, line: e.line };
+        waited[e.tid] = e.mutex;
+        h = holds[e.mutex];
+        if (h && h.tid === e.tid) {
+          s = { what: T(e.tid) + " ขอ " + N(e.mutex) + " ซ้ำ ทั้งที่ถือตัวนี้อยู่เอง",
+                why: "เกิด edge " + T(e.tid) + " → " + T(e.tid) + " วนเข้าหาตัวเอง = วงยาว 1 (self-deadlock)" };
+        } else if (h) {
+          s = { what: T(e.tid) + " ขอ " + N(e.mutex) + " — ต้องรอ",
+                why: N(e.mutex) + " ถูก " + T(h.tid) + " ถืออยู่ → เกิด edge " + T(e.tid) + " → " +
+                     T(h.tid) + " ใน wait-for graph (" + T(e.tid) + " รอ " + T(h.tid) + ")" };
+        } else {
+          s = { what: T(e.tid) + " ขอ " + N(e.mutex),
+                why: "ตารางยังไม่มีเจ้าของ (อีก thread เพิ่งปล่อย) — ยังไม่เกิด edge" };
+        }
+        s.kind = "wait"; s.us = e.us; s.tid = e.tid; s.mutex = e.mutex; s.line = e.line;
+        s.edge = h ? [e.tid, h.tid] : null;
+        push(s);
+      } else if (e.kind === "unwait") {
+        delete waits[e.tid];        /* ไม่นับเป็นขั้น — ขั้น acq ที่ตามมาเล่าแทน */
+      } else if (e.kind === "acq") {
+        touch(e.tid, e.mutex);
+        holds[e.mutex] = { tid: e.tid, line: e.line };
+        if (waited[e.tid] === e.mutex) {
+          push({ kind: "lock", us: e.us, tid: e.tid, mutex: e.mutex, line: e.line,
+            what: T(e.tid) + " ได้ " + N(e.mutex) + " แล้ว (หลังจากรอ)",
+            why: "เจ้าของเดิมปล่อยแล้ว — edge ของ " + T(e.tid) + " หายไป และตาราง holds เปลี่ยนเจ้าของ" });
+        } else {
+          push({ kind: "lock", us: e.us, tid: e.tid, mutex: e.mutex, line: e.line,
+            what: T(e.tid) + " ได้ " + N(e.mutex) + " ด้วย trylock",
+            why: "trylock ไม่มีวันค้าง เครื่องมือจึงไม่จด wait จดแค่ว่าได้ lock แล้ว" });
+        }
+        delete waited[e.tid];
+      } else if (e.kind === "rel") {
+        touch(e.tid, e.mutex);
+        var line = holds[e.mutex] ? holds[e.mutex].line : null;
+        delete holds[e.mutex];
+        var ws = Object.keys(waits).filter(function (w) { return waits[w].mutex === e.mutex; });
+        push({ kind: "rel", us: e.us, tid: e.tid, mutex: e.mutex, line: line, lineKind: "holds",
+          what: T(e.tid) + " ปล่อย " + N(e.mutex),
+          why: ws.length
+            ? "edge " + ws.map(T).join(", ") + " → " + T(e.tid) + " หายไป — " +
+              ws.map(T).join(", ") + " จะได้ " + N(e.mutex) + " ต่อ"
+            : "ไม่มีใครรอ " + N(e.mutex) + " อยู่ ตาราง holds ลบแถวนี้ทิ้ง" });
+      } else if (e.kind === "relx") {
+        push({ kind: "warn", us: e.us, tid: e.tid, mutex: e.mutex,
+          what: T(e.tid) + " ปลด " + N(e.mutex) + " แต่ตารางจดว่า " + T(e.holder) + " ถืออยู่",
+          why: "มักเกิดจาก pthread_cond_wait ซึ่งปล่อย/ล็อก mutex ภายใน glibc โดยไม่ผ่านเครื่องมือ " +
+               "— คงเจ้าของเดิมไว้ ไม่ลบทิ้ง" });
+      } else if (e.kind === "trunc") {
+        push({ kind: "warn", us: e.us,
+          what: "หยุดจดเหตุการณ์ lock ตรงนี้",
+          why: "โปรแกรมล็อกถี่เกินกว่าที่ timeline เก็บไหว (5,000 เหตุการณ์) ตารางในภาพจึงค้างอยู่ที่ขั้นนี้ " +
+               "— detector ในโปรแกรมยังทำงานต่อตามปกติ รอบตรวจด้านล่างคือผลจริง" });
+      } else if (e.kind === "check") {
+        var cycs = cycByRound[e.round] || [];
+        var last = steps[steps.length - 1];
+        if (!cycs.length) {
+          active = [];
+          if (last.kind === "check" && last.edges === e.edges) {   /* ตรวจแล้วไม่เจอติดกัน — รวมเป็นขั้นเดียว */
+            last.rounds[1] = e.round;
+            last.what = "detector ตรวจรอบที่ " + last.rounds[0] + "–" + e.round + " — ไม่มีวง";
+            continue;
+          }
+          push({ kind: "check", us: e.us, edges: e.edges, rounds: [e.round, e.round],
+            what: "detector ตื่นมาตรวจ (รอบที่ " + e.round + ") — ไม่มีวง",
+            why: e.edges
+              ? "ถ่าย snapshot ตาราง ได้ wait-for graph " + e.edges + " เส้น — เดินตามลูกศรแล้วไม่วนกลับ " +
+                "แปลว่าแค่รอกันตามปกติ → นอนต่อ"
+              : "ไม่มีใครรอใครอยู่เลย กราฟว่าง → นอนต่ออีก " + detectorMs + " ms" });
+        } else {
+          active = cycs;
+          var fresh = cycs.filter(function (c) { return c.fresh; });
+          if (fresh.length) {
+            push({ kind: "found", us: e.us, found: true,
+              what: "detector เจอวง! (รอบที่ " + e.round + ")",
+              why: "เดินตาม edge แล้ววนกลับมาที่เดิม: " + fresh.map(cycleText).join(" และ ") +
+                   " = circular wait → พิมพ์รายงาน [DEADLOCK DETECTED] ออก stderr" });
+          } else if (last.kind === "recheck") {
+            last.rounds[1] = e.round;
+            last.what = "detector ตรวจซ้ำรอบที่ " + last.rounds[0] + "–" + e.round + " — วงเดิมยังอยู่";
+          } else {
+            push({ kind: "recheck", us: e.us, rounds: [e.round, e.round],
+              what: "detector ตรวจซ้ำ (รอบที่ " + e.round + ") — วงเดิมยังอยู่",
+              why: "thread ในวงไม่มีวันขยับเอง วงจึงยังอยู่ทุกรอบ — เครื่องมือจำได้ว่ารายงานไปแล้ว ไม่พิมพ์ซ้ำ" });
+          }
+        }
+      }
+    }
+
+    var endWhy;
+    if (data.timed_out) {
+      endWhy = active.length
+        ? "เครื่องมือแค่ตรวจ ไม่ได้แก้ — thread ในวงค้างต่อไปจน server ตัดที่ " + data.timeout + " วินาที"
+        : "ถูกตัดที่ " + data.timeout + " วินาทีโดยไม่เจอวง — อาจค้างด้วยสาเหตุอื่นที่ไม่ใช่ mutex";
+    } else {
+      endWhy = data.exit === 0 ? "exit code 0 — destructor หยุด detector thread แล้วจบ"
+                               : "exit code " + data.exit;
+      if (!ev.some(function (x) { return x.kind === "check"; }))
+        endWhy += " · โปรแกรมจบก่อนครบ " + detectorMs + " ms detector จึงยังไม่ทันตื่นมาตรวจเลย";
+    }
+    push({ kind: "end",
+      us: data.timed_out ? data.timeout * 1000000 : steps[steps.length - 1].us,
+      what: data.timed_out ? "โปรแกรมยังค้าง — ถูกตัด" : "โปรแกรมจบ", why: endWhy });
+
+    return { steps: steps, tids: tids, mutexes: mutexes, names: names,
+             firstT: firstT, firstM: firstM, src: src, truncated: trace.truncated };
+  }
+
+  /* ภาพ resource allocation graph ณ ขั้นนั้น: thread แถวบน mutex แถวล่าง
+     เส้นโค้งเหนือแถว thread คือ wait-for edge ที่ detector เอาไปหาวงจริง ๆ */
+  function tlGraph(tl, idx) {
+    var st = tl.steps[idx], S = st.state;
+    var nT = tl.tids.length, nM = tl.mutexes.length;
+    var gap = Math.max(nT, nM) > 6 ? 120 : 150;
+    var W = Math.max(420, Math.max(nT, nM) * gap + 60), H = 320;
+    var yT = 140, yM = 270;
+    var pT = {}, pM = {};
+    tl.tids.forEach(function (t, i) { pT[t] = { x: W / 2 + (i - (nT - 1) / 2) * gap, y: yT }; });
+    tl.mutexes.forEach(function (m, i) { pM[m] = { x: W / 2 + (i - (nM - 1) / 2) * gap, y: yM }; });
+
+    var inCyc = {}, cycEdge = {};
+    st.cycles.forEach(function (c) {
+      c.members.forEach(function (x, k) {
+        inCyc[x.tid] = 1;
+        if (!c.partial || k + 1 < c.members.length)
+          cycEdge[x.tid + ">" + c.members[(k + 1) % c.members.length].tid] = 1;
+      });
+    });
+
+    var p = [];
+    p.push('<svg class="tlg" viewBox="0 0 ' + W + ' ' + H + '" xmlns="http://www.w3.org/2000/svg" ' +
+           'role="img" aria-label="สถานะของตารางและ wait-for graph ณ ขั้นนี้">');
+    p.push('<defs>' +
+      '<marker id="tlRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
+      '<path d="M0,0 L10,5 L0,10 z" fill="var(--accent)"/></marker>' +
+      '<marker id="tlGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
+      '<path d="M0,0 L10,5 L0,10 z" fill="var(--muted)"/></marker>' +
+      '<marker id="tlWarn" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
+      '<path d="M0,0 L10,5 L0,10 z" fill="var(--warn)"/></marker>' +
+      '</defs>');
+
+    /* M -> T = ถืออยู่ */
+    Object.keys(S.holds).forEach(function (m) {
+      var t = S.holds[m].tid;
+      if (!pM[m] || !pT[t]) return;
+      var fresh = st.kind === "lock" && st.mutex === m ? " fresh" : "";
+      p.push('<path class="' + fresh + '" d="' + edgePath(pM[m], pT[t], 22, 24, 18) +
+             '" fill="none" stroke="var(--muted)" stroke-width="2" marker-end="url(#tlGray)"/>');
+    });
+    /* T -> M = กำลังขอ  และ T -> T = wait-for edge */
+    Object.keys(S.waits).forEach(function (t) {
+      var w = S.waits[t];
+      if (!pM[w.mutex] || !pT[t]) return;
+      var fresh = st.kind === "wait" && st.tid === t ? " fresh" : "";
+      /* โค้งเลขเดียวกับเส้น M -> T แต่ทิศกลับกัน จึงออกคนละฝั่ง ไม่ทับกันตอนคู่เดียวกัน */
+      p.push('<path class="' + fresh + '" d="' + edgePath(pT[t], pM[w.mutex], 24, 22, 18) +
+             '" fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#tlRed)"/>');
+
+      var h = S.holds[w.mutex];
+      if (!h || !pT[h.tid]) return;
+      var a = pT[t], b = pT[h.tid], d;
+      if (t === h.tid) {
+        d = "M" + (a.x - 16) + "," + (a.y - 22) + " C" + (a.x - 50) + "," + (a.y - 90) + " " +
+            (a.x + 50) + "," + (a.y - 90) + " " + (a.x + 16) + "," + (a.y - 24);
+      } else {
+        /* ลูกศรไปทางซ้ายยกสูงกว่า — ไม่งั้น T1 → T2 กับ T2 → T1 ทับกันเป็นเส้นเดียว */
+        var lift = Math.min(100, 34 + Math.abs(a.x - b.x) * 0.18) + (a.x > b.x ? 30 : 0);
+        d = "M" + a.x.toFixed(1) + "," + (a.y - 24) + " Q" + ((a.x + b.x) / 2).toFixed(1) + "," +
+            (a.y - 24 - lift).toFixed(1) + " " + b.x.toFixed(1) + "," + (b.y - 25);
+      }
+      var hot = cycEdge[t + ">" + h.tid];
+      /* เส้นประใช้ .fresh ไม่ได้ (CSS จะทับ dasharray จนกลายเป็นเส้นทึบ) จึงค่อย ๆ โผล่แทน */
+      p.push('<path class="' + (fresh ? "fadein" : "") + '" d="' + d + '" fill="none" stroke="' +
+             (hot ? "var(--accent)" : "var(--warn)") + '" stroke-width="' + (hot ? 3 : 2) +
+             '" stroke-dasharray="' + (hot ? "none" : "6 4") + '" marker-end="url(#' +
+             (hot ? "tlRed" : "tlWarn") + ')"/>');
+    });
+
+    /* node */
+    tl.tids.forEach(function (t) {
+      var q = pT[t], dim = tl.firstT[t] > idx ? ' class="dim"' : "";
+      var me = st.tid === t;
+      p.push('<g' + dim + '><ellipse cx="' + q.x.toFixed(1) + '" cy="' + q.y + '" rx="46" ry="23" fill="' +
+             (me ? "color-mix(in srgb, var(--accent2) 18%, var(--card))" : "var(--card)") +
+             '" stroke="' + (inCyc[t] ? "var(--accent)" : "var(--ink)") + '" stroke-width="' +
+             (inCyc[t] ? 3 : 1.6) + '"/>' +
+             '<text x="' + q.x.toFixed(1) + '" y="' + (q.y + 5) + '" text-anchor="middle" ' +
+             'font-family="JetBrains Mono, monospace" font-size="13" font-weight="600" fill="var(--ink)">T' +
+             esc(t) + '</text></g>');
+    });
+    tl.mutexes.forEach(function (m) {
+      var q = pM[m], dim = tl.firstM[m] > idx ? ' class="dim"' : "";
+      var me = st.mutex === m;
+      p.push('<g' + dim + '><rect x="' + (q.x - 58).toFixed(1) + '" y="' + (q.y - 21) +
+             '" width="116" height="42" rx="9" fill="' +
+             (me ? "color-mix(in srgb, var(--accent2) 18%, var(--card))" : "var(--card)") +
+             '" stroke="var(--accent2)" stroke-width="' + (me ? 2.6 : 1.8) + '"/>' +
+             '<text x="' + q.x.toFixed(1) + '" y="' + (q.y - 2) + '" text-anchor="middle" ' +
+             'font-family="JetBrains Mono, monospace" font-size="12" font-weight="600" fill="var(--ink)">' +
+             esc(tl.names[m].length > 15 ? tl.names[m].slice(0, 14) + "…" : tl.names[m]) + '</text>' +
+             '<text x="' + q.x.toFixed(1) + '" y="' + (q.y + 13) + '" text-anchor="middle" ' +
+             'font-family="JetBrains Mono, monospace" font-size="10" fill="var(--muted)">' +
+             esc(shortMutex(m)) + '</text></g>');
+    });
+    p.push('</svg>');
+    return p.join("");
+  }
+
+  /* ตารางสองใบใน state.c ณ ขั้นนั้น — สิ่งที่ detector "เห็น" จริง ๆ */
+  function tlTables(tl, idx) {
+    var S = tl.steps[idx].state;
+    var hr = tl.mutexes.filter(function (m) { return S.holds[m]; }).map(function (m) {
+      var h = S.holds[m];
+      return "<tr><td class='mono'>" + esc(tl.names[m]) + "</td><td class='mono'>T" + esc(h.tid) +
+             "</td><td class='mono good'>" + (h.line || "-") + "</td></tr>";
+    });
+    var wr = tl.tids.filter(function (t) { return S.waits[t]; }).map(function (t) {
+      var w = S.waits[t], h = S.holds[w.mutex];
+      return "<tr><td class='mono'>T" + esc(t) + "</td><td class='mono'>" + esc(tl.names[w.mutex]) +
+             "</td><td class='mono bad'>" + (w.line || "-") + "</td><td class='mono' style='white-space:nowrap'>" +
+             (h ? "T" + esc(t) + " → T" + esc(h.tid) : "<span class='hint'>ยังไม่มีเจ้าของ</span>") + "</td></tr>";
+    });
+    return '<div class="tl-box"><h4>ตาราง holds — ใครถือ mutex ไหน</h4>' +
+      (hr.length ? '<div class="tablewrap" style="margin:0"><table><tr><th>mutex</th><th>ถือโดย</th><th>บรรทัด</th></tr>' +
+                   hr.join("") + '</table></div>'
+                 : '<p class="empty">ว่าง — ไม่มีใครถืออะไร</p>') +
+      '</div><div class="tl-box"><h4>ตาราง waits — ใครรออะไร (= edge)</h4>' +
+      (wr.length ? '<div class="tablewrap" style="margin:0"><table><tr><th>thread</th><th>รอ</th><th>บรรทัด</th><th>edge</th></tr>' +
+                   wr.join("") + '</table></div>'
+                 : '<p class="empty">ว่าง — ไม่มีใครรอ จึงไม่มี edge</p>') +
+      '</div>';
+  }
+
+  function timelineShell(tl) {
+    var found = tl.steps.some(function (s) { return s.found; });
+    var items = tl.steps.map(function (s, i) {
+      return '<div class="tl-item' + (s.found ? " found" : "") + '" data-i="' + i + '">' +
+             '<span class="ti">' + esc(fmtTime(s.us)) + '</span><span class="tx">' + esc(s.what) + '</span></div>';
+    }).join("");
+    var code = tl.src.map(function (text, i) {
+      return '<div class="cline"><span class="ln">' + (i + 1) + '</span><span class="src">' +
+             esc(text === "" ? " " : text) + '</span><span class="tagline"></span></div>';
+    }).join("");
+    return '<div class="panel" id="tlPanel" tabindex="-1">' +
+      '<h3>การทำงานทีละขั้น — เครื่องมือเห็นอะไร ตอนไหน</h3>' +
+      '<p class="hint" style="margin:0 0 8px">เล่นย้อนจากเหตุการณ์จริงที่ libdetect.so จดไว้ระหว่างรัน ' +
+      '(<code>DD_TRACE</code>) · กด ← → บนแป้นพิมพ์เพื่อเลื่อนทีละขั้น</p>' +
+      '<div class="tl-bar">' +
+      '<button type="button" id="tlFirst">« เริ่ม</button>' +
+      '<button type="button" id="tlPrev">‹ ก่อนหน้า</button>' +
+      '<button type="button" id="tlPlay" class="primary" style="padding:7px 16px; font-size:13px">เล่น</button>' +
+      '<button type="button" id="tlNext">ถัดไป ›</button>' +
+      (found ? '<button type="button" id="tlFound" class="danger">ไปตอนเจอวง</button>' : '') +
+      '<select id="tlSpeed" aria-label="ความเร็ว"><option value="1600">ช้า</option>' +
+      '<option value="900" selected>ปกติ</option><option value="350">เร็ว</option></select>' +
+      '</div>' +
+      '<div class="tl-bar"><input type="range" id="tlRange" min="0" max="' + (tl.steps.length - 1) +
+      '" value="0" aria-label="เลือกขั้น"><span class="tl-pos" id="tlPos"></span></div>' +
+      '<div class="tl-step" id="tlStep"></div>' +
+      '<div class="tl-grid"><div>' +
+      '<div id="tlGraph"></div>' +
+      '<div class="legend">' +
+      '<span><i class="swatch" style="background:var(--accent)"></i> T → mutex กำลังขอ</span>' +
+      '<span><i class="swatch" style="background:var(--muted)"></i> mutex → T ถืออยู่</span>' +
+      '<span><i class="swatch" style="background:var(--warn)"></i> T → T wait-for edge ที่ detector ใช้หาวง</span>' +
+      '</div></div>' +
+      '<div id="tlTables"></div></div>' +
+      '<div class="tl-grid" style="margin-top:12px"><div>' +
+      '<div class="tl-box" style="padding:0; overflow:hidden"><div class="codeview tl" id="tlCode">' + code + '</div></div>' +
+      '</div><div><div class="tl-list" id="tlList">' + items + '</div></div></div>' +
+      (tl.truncated ? '<p class="hint">โปรแกรมนี้ล็อกถี่มาก timeline จึงเก็บแค่ 5,000 เหตุการณ์ lock แรก</p>' : '') +
+      '</div>';
+  }
+
+  var tlTimer = null;
+  function stopTimeline() {
+    if (tlTimer) { clearInterval(tlTimer); tlTimer = null; }
+    var b = $("tlPlay");
+    if (b) b.textContent = "เล่น";
+  }
+
+  function startTimeline(tl) {
+    var idx = 0;
+    var codeLines = $("tlCode").children;
+    var listItems = $("tlList").children;
+    var marked = [];
+
+    function markCode(st) {
+      marked.forEach(function (n) {
+        var el = codeLines[n - 1];
+        el.className = "cline";
+        el.lastChild.textContent = "";
+      });
+      marked = [];
+      var tags = {};
+      function add(line, cls, text) {
+        if (!line || !codeLines[line - 1]) return;
+        (tags[line] = tags[line] || { cls: cls, text: [] }).text.push(text);
+        if (cls === "waiting") tags[line].cls = "waiting";
+      }
+      Object.keys(st.state.holds).forEach(function (m) {
+        var h = st.state.holds[m];
+        add(h.line, "holds", "T" + h.tid + " ถือ " + tl.names[m]);
+      });
+      Object.keys(st.state.waits).forEach(function (t) {
+        var w = st.state.waits[t];
+        add(w.line, "waiting", "T" + t + " รอ " + tl.names[w.mutex]);
+      });
+      Object.keys(tags).forEach(function (n) {
+        var el = codeLines[n - 1];
+        el.className = "cline " + tags[n].cls;
+        el.lastChild.textContent = tags[n].text.join(" · ");
+        marked.push(Number(n));
+      });
+      if (st.line && codeLines[st.line - 1]) {
+        var cur = codeLines[st.line - 1];
+        cur.className += " current";
+        if (marked.indexOf(st.line) < 0) marked.push(st.line);
+        var cv = $("tlCode");
+        cv.scrollTop = cur.offsetTop - cv.clientHeight / 2 + cur.offsetHeight / 2;
+      }
+    }
+
+    function show(i) {
+      idx = Math.max(0, Math.min(tl.steps.length - 1, i));
+      var st = tl.steps[idx];
+      var k = st.kind === "end" || st.kind === "start" ? "" : " k-" + st.kind;
+      $("tlStep").className = "tl-step" + k;
+      $("tlStep").innerHTML = '<div class="t">ขั้น ' + (idx + 1) + ' · ' + esc(fmtTime(st.us)) +
+        (st.line ? ' · บรรทัด ' + st.line : '') + '</div>' +
+        '<div class="what">' + esc(st.what) + '</div><p class="why">' + esc(st.why || "") + '</p>';
+      $("tlGraph").innerHTML = tlGraph(tl, idx);
+      $("tlTables").innerHTML = tlTables(tl, idx);
+      $("tlRange").value = String(idx);
+      $("tlPos").textContent = (idx + 1) + " / " + tl.steps.length;
+      markCode(st);
+      Array.prototype.forEach.call(listItems, function (el, j) {
+        el.className = el.className.replace(/\s?on\b/, "") + (j === idx ? " on" : "");
+      });
+      var li = listItems[idx], list = $("tlList");
+      if (li.offsetTop < list.scrollTop || li.offsetTop + li.offsetHeight > list.scrollTop + list.clientHeight)
+        list.scrollTop = li.offsetTop - list.clientHeight / 2;
+      if (idx === tl.steps.length - 1) stopTimeline();
+    }
+
+    function play() {
+      if (tlTimer) { stopTimeline(); return; }
+      if (idx === tl.steps.length - 1) show(0);
+      $("tlPlay").textContent = "หยุด";
+      tlTimer = setInterval(function () { show(idx + 1); }, Number($("tlSpeed").value));
+    }
+
+    $("tlFirst").addEventListener("click", function () { stopTimeline(); show(0); });
+    $("tlPrev").addEventListener("click", function () { stopTimeline(); show(idx - 1); });
+    $("tlNext").addEventListener("click", function () { stopTimeline(); show(idx + 1); });
+    $("tlPlay").addEventListener("click", play);
+    $("tlSpeed").addEventListener("change", function () {
+      if (tlTimer) { stopTimeline(); play(); }
+    });
+    $("tlRange").addEventListener("input", function () { stopTimeline(); show(Number(this.value)); });
+    if ($("tlFound")) {
+      $("tlFound").addEventListener("click", function () {
+        stopTimeline();
+        for (var i = 0; i < tl.steps.length; i++) if (tl.steps[i].found) { show(i); return; }
+      });
+    }
+    $("tlList").addEventListener("click", function (e) {
+      var item = e.target.closest(".tl-item");
+      if (item) { stopTimeline(); show(Number(item.getAttribute("data-i"))); }
+    });
+    $("tlPanel").addEventListener("keydown", function (e) {
+      /* select กับ slider จัดการลูกศรเองอยู่แล้ว — ไม่งั้นจะเลื่อนสองขั้น */
+      if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+      if (e.key === "ArrowRight") { e.preventDefault(); stopTimeline(); show(idx + 1); }
+      if (e.key === "ArrowLeft")  { e.preventDefault(); stopTimeline(); show(idx - 1); }
+    });
+    show(0);
+  }
+
   /* ---------------------------------------------------------- แสดงผล */
   function renderReport(report) {
     var rows = report.threads.map(function (t) {
@@ -799,8 +1332,11 @@ int main(void) {
       '</div></div>';
   }
 
+  var currentTL = null;            /* timeline ของผลล่าสุด — startTimeline ต่อสายหลังใส่ HTML แล้ว */
+
   function render(data, mode, submittedCode) {
     var html = [];
+    currentTL = null;
     var modeLabel = mode === "detect" ? "รันผ่านเครื่องมือ" : "รันแบบปกติ";
 
     if (!data.compile_ok) {
@@ -856,6 +1392,11 @@ int main(void) {
         '<p style="margin:0">โปรแกรมค้างจนถูกตัด และ<strong>ไม่มีอะไรบอกเลย</strong>ว่าเกิดอะไรขึ้น ' +
         'ไม่ crash ไม่มี error — นี่คือทั้งหมดที่ deadlock บอกเรา<br>' +
         'ลองกด <strong>รันผ่านเครื่องมือ</strong> ด้วยโค้ดเดิมดู</p></div>');
+    }
+
+    if (mode === "detect") {
+      currentTL = buildTimeline(data, submittedCode);
+      if (currentTL) html.push(timelineShell(currentTL));
     }
 
     if (data.stderr) {
@@ -1031,6 +1572,7 @@ int main(void) {
     var timeout = Number($("timeout").value);
 
     setBusy(true);
+    stopTimeline();
     startTicker(mode);
     $("resultSection").style.display = "";
     $("result").innerHTML = '<p class="hint">กำลัง compile แล้วรัน ...</p>';
@@ -1047,6 +1589,7 @@ int main(void) {
           $("result").innerHTML = '<p><span class="badge err">ผิดพลาด</span> ' + esc(data.error) + '</p>';
         } else {
           $("result").innerHTML = render(data, mode, code);
+          if (currentTL) startTimeline(currentTL);
           countUpTiles();
           scrollCodeToFirstMark();
         }
@@ -1081,6 +1624,7 @@ int main(void) {
     fetch("/api/status", { cache: "no-store" })
       .then(function (r) { return r.json(); })
       .then(function (s) {
+        detectorMs = s.interval_ms || detectorMs;
         $("statusbar").innerHTML =
           item(true, "เซิร์ฟเวอร์พร้อม") +
           item(s.lib_ready,
