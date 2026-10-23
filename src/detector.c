@@ -16,6 +16,7 @@
 #include "state.h"
 #include "graph.h"
 #include "report.h"
+#include "trace.h"
 
 /* นอนทีละช่วงสั้น ๆ แทนที่จะนอนยาวครบคาบ เพื่อให้สั่งหยุดแล้วหยุดได้ไว
  * ไม่ต้องรอจนครบ DD_CHECK_INTERVAL_MS ตอนโปรแกรมจบ
@@ -68,7 +69,9 @@ int dd_detector_check_once(void) {
     n = dd_graph_find_cycles(g_cur, DD_MAX_CYCLES);
 
     for (size_t i = 0; i < n; i++) {
-        if (seen_before(&g_cur[i])) {
+        int old = seen_before(&g_cur[i]);
+        dd_trace_cycle(&g_cur[i], !old);
+        if (old) {
             dd_dbgf("detector: วงเดิม ไม่รายงานซ้ำ\n");
             continue;
         }
@@ -140,6 +143,7 @@ void dd_detector_note_order(dd_tid_t t, dd_mutex_t prev, dd_mutex_t next) {
 __attribute__((constructor))
 static void dd_startup(void) {
     dd_interpose_resolve();   /* ต้องมาก่อนเพื่อน — ทุกอย่างพึ่ง real_* */
+    dd_trace_init();          /* ก่อน state/detector จะได้ไม่พลาดเหตุการณ์แรก */
     dd_state_init();
     dd_detector_start();
 }
