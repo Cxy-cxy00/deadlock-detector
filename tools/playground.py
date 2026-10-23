@@ -126,6 +126,82 @@ def parse_report(text):
     return report
 
 
+# ---- ตัวอ่านไฟล์ DD_TRACE (รูปแบบอยู่ที่หัว src/trace.h) ให้หน้าเว็บเล่นเป็น timeline ----
+TRACE_LOCK_KINDS = ("wait", "unwait", "acq", "rel")
+RE_ADDR2LINE = re.compile(r"^(.*?):(\d+)")
+
+
+def resolve_lines(exe, base, pcs, filename):
+    """แปลง pc ทุกตัวเป็นเลขบรรทัดด้วย addr2line ครั้งเดียว
+
+    สูตรเดียวกับ report.c: offset = pc - base - 1
+    (ลบ 1 เพราะ return address ชี้คำสั่ง "ถัดจาก" call)  non-PIE มี base = 0 ก็ใช้สูตรเดิมได้
+    คืน dict {pc: line} เฉพาะที่ชี้เข้าไฟล์ของผู้ใช้ได้จริง
+    """
+    if not pcs or shutil.which("addr2line") is None:
+        return {}
+    offsets = ["0x%x" % max(pc - base - 1, 0) for pc in pcs]
+    try:
+        cp = subprocess.run(["addr2line", "-e", str(exe)] + offsets,
+                            capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        return {}
+    out = {}
+    for pc, row in zip(pcs, cp.stdout.splitlines()):
+        m = RE_ADDR2LINE.match(row.strip())
+        if m and os.path.basename(m.group(1)) == filename and int(m.group(2)) > 0:
+            out[pc] = int(m.group(2))
+    return out
+
+
+def parse_trace(text, exe, filename):
+    """คืน {"events": [...], "truncated": bool} เรียงตาม seq แล้ว"""
+    base = 0
+    events = []
+    truncated = False
+    for line in text.splitlines():
+        f = line.split()
+        if not f or f[0] == "#":
+            continue
+        if f[0] == "base" and len(f) == 2:
+            base = int(f[1], 16)
+            continue
+        if len(f) < 3 or not f[0].isdigit():
+            continue
+        seq, us, kind = int(f[0]), int(f[1]), f[2]
+        ev = {"seq": seq, "us": us, "kind": kind}
+        try:
+            if kind in TRACE_LOCK_KINDS and len(f) >= 6:
+                ev.update(tid=f[3], mutex=f[4], pc=int(f[5], 16))
+            elif kind == "relx" and len(f) >= 6:
+                ev.update(tid=f[3], mutex=f[4], holder=f[5])
+            elif kind == "check" and len(f) >= 5:
+                ev.update(round=int(f[3]), edges=int(f[4]))
+            elif kind == "cycle" and len(f) >= 8:
+                members = []
+                for item in f[8:]:
+                    tid, _, mutex = item.partition(":")
+                    members.append({"tid": tid, "mutex": mutex})
+                ev.update(round=int(f[3]), fresh=f[4] == "1", len=int(f[5]),
+                          full_len=int(f[6]), partial=f[7] == "1", members=members)
+            elif kind == "trunc":
+                truncated = True
+            else:
+                continue
+        except ValueError:
+            continue            # บรรทัดเสีย (เช่นถูกตัดกลางตอน timeout) ข้ามไป
+        events.append(ev)
+
+    events.sort(key=lambda e: e["seq"])
+    pcs = sorted({e["pc"] for e in events if e.get("pc")})
+    lines = resolve_lines(exe, base, pcs, filename)
+    for e in events:
+        pc = e.pop("pc", None)
+        if pc:
+            e["line"] = lines.get(pc)
+    return {"events": events, "truncated": truncated}
+
+
 def as_text(value):
     if value is None:
         return ""
@@ -166,6 +242,7 @@ def run_code(code, mode, timeout, filename="prog.c"):
         "timed_out": False,
         "outcome": None,   # "ok" = exit 0 · "timeout" = ค้างจนถูกตัด · "abnormal" = exit != 0 หรือโดน signal
         "report": None,
+        "trace": None,     # เฉพาะ detect: เหตุการณ์ทีละขั้นจาก DD_TRACE
         "dot": "",
         "mode": mode,
         "timeout": timeout,
@@ -183,6 +260,7 @@ def run_code(code, mode, timeout, filename="prog.c"):
         src = tdp / safe_filename(filename)
         exe = tdp / "prog"
         dot = tdp / "cycle.dot"
+        trace = tdp / "trace.txt"
         out["filename"] = src.name
         src.write_text(code, encoding="utf-8")
 
@@ -205,9 +283,11 @@ def run_code(code, mode, timeout, filename="prog.c"):
         env.pop("LD_PRELOAD", None)
         env.pop("DD_DOT_OUT", None)
         env.pop("DD_VERBOSE", None)
+        env.pop("DD_TRACE", None)
         if mode == "detect":
             env["LD_PRELOAD"] = str(LIB)
             env["DD_DOT_OUT"] = str(dot)
+            env["DD_TRACE"] = str(trace)
 
         try:
             rp = subprocess.run([str(exe)], capture_output=True, text=True,
@@ -227,6 +307,9 @@ def run_code(code, mode, timeout, filename="prog.c"):
         if dot.is_file():
             out["dot"] = dot.read_text(encoding="utf-8", errors="replace")
         out["report"] = parse_report(out["stderr"])
+        if trace.is_file():
+            out["trace"] = parse_trace(trace.read_text(encoding="utf-8", errors="replace"),
+                                       exe, src.name)
 
     return out
 

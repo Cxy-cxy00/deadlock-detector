@@ -1,0 +1,28 @@
+# Phase 6 — DD_TRACE + timeline: regression ทั้งชุด
+$ bash tests/run_regress.sh
+== robust (ข้อ 2.3)
+   [ผ่าน]     main ได้ EOWNERDEAD
+   [ผ่าน]     ค้าง (exit 124)
+   [ผ่าน]     รายงาน deadlock 2 thread หนึ่งครั้ง
+== errcheck (ข้อ 2.4)
+   [ผ่าน]     t2 unlock ได้ EPERM
+   [ผ่าน]     ค้าง (exit 124)
+   [ผ่าน]     รายงาน deadlock 2 thread หนึ่งครั้ง
+   [ผ่าน]     WARNING เรื่องเจ้าของไม่ตรง 1 ครั้ง
+== longcycle (ข้อ 2.7)
+   [ผ่าน]     ค้าง (exit 124)
+   [ผ่าน]     หัวรายงานบอกว่ายาว 70 แสดง 64
+   [ผ่าน]     บรรทัด Cycle จบด้วย ... ไม่ปิดวง
+== condvar (ข้อ 5.1)
+   [ผ่าน]     จบเอง (exit 0)
+   [ผ่าน]     ไม่มี [DEADLOCK DETECTED] (ไม่เตือนผิด)
+   [ผ่าน]     WARNING ไม่เกิน 1 ครั้ง (ได้ 1)
+== trace (timeline ของหน้า playground)
+   [ผ่าน]     มีหัวไฟล์ trace
+   [ผ่าน]     wait ครบ 4 ครั้ง — ไม่ถูก process ลูกเขียนทับ
+   [ผ่าน]     cycle ใหม่ยาว 2 หนึ่งครั้ง
+   [ผ่าน]     condvar จด relx (unlock ไม่ตรงเจ้าของ)
+   [ผ่าน]     trunc ไม่เกิน 1 บรรทัด
+
+ผ่านทุกข้อ
+exit=0

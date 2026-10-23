@@ -23,6 +23,7 @@
  */
 #include "state.h"
 #include "interpose.h"
+#include "trace.h"
 
 static dd_wait_t g_waits[DD_MAX_THREADS];
 static size_t    g_nwaits = 0;
@@ -132,6 +133,7 @@ void dd_state_wait_begin(dd_tid_t t, dd_mutex_t m, dd_site_t site) {
     g_waits[i].waiter = t;
     g_waits[i].mutex  = m;
     g_waits[i].site   = site;
+    if (DD_TRACING()) dd_trace_lock_event("wait", t, m, site.pc);
 
     dump_locked();   /* เงียบเองถ้าไม่ได้ตั้ง DD_VERBOSE */
     dd_state_unlock();
@@ -145,6 +147,7 @@ void dd_state_wait_end(dd_tid_t t, dd_mutex_t m) {
             dd_dbgf("WARNING: wait_end tid %lu mutex ไม่ตรงกับที่จดไว้\n", t);
         g_waits[i] = g_waits[g_nwaits - 1];   /* เอาตัวท้ายมาแทน = ลบ O(1) */
         g_nwaits--;
+        if (DD_TRACING()) dd_trace_lock_event("unwait", t, m, NULL);
     }
     dd_state_unlock();
 }
@@ -167,6 +170,7 @@ void dd_state_acquired(dd_tid_t t, dd_mutex_t m, dd_site_t site) {
     g_holds[i].mutex  = m;
     g_holds[i].holder = t;
     g_holds[i].site   = site;
+    if (DD_TRACING()) dd_trace_lock_event("acq", t, m, site.pc);
     dd_state_unlock();
 }
 
@@ -185,6 +189,7 @@ void dd_state_released(dd_tid_t t, dd_mutex_t m) {
              * cond_wait ล่าสุดเป็นเจ้าของ  พอคนที่ตื่นขึ้นมา unlock ก็มาตกกรณีนี้
              * โปรแกรม condvar ธรรมดาจึงเจอได้หลายพันครั้ง -> เตือนครั้งเดียว ที่เหลือเป็น debug log
              */
+            if (DD_TRACING()) dd_trace_relx(t, m, g_holds[i].holder);
             if (!g_warned_owner) {
                 g_warned_owner = 1;
                 dd_logf("[dd] WARNING: tid %lu ปลด mutex %p ที่ตารางจดว่า tid %lu ถืออยู่ "
@@ -199,6 +204,7 @@ void dd_state_released(dd_tid_t t, dd_mutex_t m) {
         } else {
             g_holds[i] = g_holds[g_nholds - 1];
             g_nholds--;
+            if (DD_TRACING()) dd_trace_lock_event("rel", t, m, NULL);
         }
     }
     dd_state_unlock();

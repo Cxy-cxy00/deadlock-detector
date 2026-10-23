@@ -39,6 +39,15 @@ glibc รุ่นใหม่ทำ `popen` ด้วย `posix_spawn` (child e
 เทียบว่าเป็นวงเดิมหรือไม่แบบ "เซต" ไม่ใช่เทียบทีละตำแหน่ง เพราะ DFS อาจเริ่มไล่จากคนละ node
 แล้วได้ลำดับเริ่มต้นต่างกันทั้งที่เป็นวงเดียวกัน
 
+**timeline ทีละขั้น: library จดเหตุการณ์ดิบ หน้าเว็บเล่นย้อนเอง (`DD_TRACE`)**
+แทนที่จะให้หน้าเว็บเดาจาก `DD_VERBOSE` (ข้อความสำหรับคนอ่าน รูปแบบเปลี่ยนได้) library เขียนไฟล์บรรทัดละเหตุการณ์
+รูปแบบตายตัว (หัว `src/trace.h`) แล้วหน้าเว็บเล่นย้อนด้วยกติกาเดียวกับ `state.c`
+- จดใน `state.c` ใต้ `dd_state_lock` ลำดับในไฟล์จึงตรงกับลำดับที่ตารางเปลี่ยนจริง และรอบตรวจ (`check`)
+  จดใต้ล็อกเดียวกับ snapshot ของ `graph.c` — เหตุการณ์ lock ที่อยู่ก่อนบรรทัด check คือสิ่งที่กราฟรอบนั้นเห็นพอดี
+- เช็คเปิด/ปิดที่จุดเรียก (`DD_TRACING()`) ไม่ใช่ข้างในฟังก์ชัน — รอบแรกเช็คข้างในแล้วช้าลงราว 10% ทั้งที่ปิดอยู่
+- pc แปลงเป็นบรรทัดฝั่ง server (`addr2line` ครั้งเดียวทั้งไฟล์) ไม่ใช่ใน lock path ใช้ load base จาก
+  `dl_iterate_phdr` ที่จดไว้ตอน constructor — สูตรนี้ใช้ได้ทั้ง PIE (base จริง) และ non-PIE (base = 0)
+
 ## เรื่องที่รู้ตอนลงมือทำจริง
 
 - **กราฟนี้มี out-degree ไม่เกิน 1** เพราะ thread ค้างใน `pthread_mutex_lock` ได้ทีละ mutex เดียว
@@ -55,6 +64,8 @@ glibc รุ่นใหม่ทำ `popen` ด้วย `posix_spawn` (child e
 - **`LD_PRELOAD` ตกทอดไปยัง process ลูก** เช่น `LD_PRELOAD=... timeout 5 ./bank`
   ตัว `timeout` ก็โดน preload ไปด้วย เป็นข้อดีถ้าอยากตามทั้ง process tree แต่เป็นกับดักถ้าไม่รู้
   (รวมถึง `sh`/`addr2line` ที่ report.c เรียกผ่าน `popen` — เห็นได้จาก `DD_VERBOSE=1`)
+  ผลข้างเคียงที่เจอจริง: ลูกเห็น `DD_TRACE` แล้วเปิดไฟล์เดิมด้วย `O_TRUNC` ลบ timeline ทิ้งทั้งไฟล์
+  `trace.c` จึง `unsetenv("DD_TRACE")` ใน constructor (`make regress` ข้อ trace จับกรณีนี้)
 - **ld.so แยก `LD_PRELOAD` ด้วยช่องว่างและ `:`** path เต็มที่มีช่องว่าง (เช่น `.../Bachelor degree/...`)
   จะโหลดไม่ขึ้นแบบเงียบ ๆ  เจอตอนทำ baseline (`tests/logs/baseline_pathspace/`)
   `run_demo.sh` จึงใช้ path แบบ relative และ `playground.py` แจ้ง error

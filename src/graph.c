@@ -25,6 +25,7 @@
  */
 #include "graph.h"
 #include "state.h"
+#include "trace.h"
 
 #define DD_NO_EDGE (-1)
 
@@ -61,6 +62,7 @@ static int add_node(dd_tid_t t) {
 void dd_graph_build(void) {
     const dd_wait_t *waits;
     size_t nwaits;
+    size_t nedges = 0;
 
     g_nnodes = 0;
 
@@ -80,6 +82,7 @@ void dd_graph_build(void) {
 
         g_next[u]    = v;
         g_wait_on[u] = waits[i].mutex;
+        nedges++;
 
         /* u == v แปลว่า thread รอ mutex ที่ตัวเองถืออยู่ = self-deadlock
          * (ล็อก mutex ตัวเดิมซ้ำโดยที่ไม่ใช่ชนิด recursive) — เป็น cycle ความยาว 1
@@ -87,6 +90,8 @@ void dd_graph_build(void) {
         dd_dbgf("graph: edge tid %lu -> tid %lu (รอ mutex %p)\n",
                 waits[i].waiter, holder, waits[i].mutex);
     }
+    /* จดใต้ล็อกเดียวกับ snapshot — ในไฟล์ trace จะอยู่หลังเหตุการณ์ lock ทุกตัวที่กราฟนี้เห็นพอดี */
+    dd_trace_check(nedges);
     dd_state_unlock();
 
     dd_dbgf("graph: สร้างเสร็จ %zu node\n", g_nnodes);
