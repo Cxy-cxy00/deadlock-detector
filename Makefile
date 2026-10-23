@@ -14,10 +14,11 @@ OBJ      := $(patsubst src/%.c,$(BUILD)/%.o,$(SRC))
 DEPS     := $(OBJ:.o=.d)
 LIB      := $(BUILD)/libdetect.so
 TESTS    := $(BUILD)/bank $(BUILD)/no_deadlock $(BUILD)/sample_webapp $(BUILD)/two_pairs \
-            $(BUILD)/cycle3 $(BUILD)/condvar
+            $(BUILD)/cycle3 $(BUILD)/condvar $(BUILD)/robust \
+            $(BUILD)/errcheck $(BUILD)/longcycle
 BENCH    := $(BUILD)/bench
 
-.PHONY: all tests clean demo playground sample_webapp bench
+.PHONY: all tests clean demo playground sample_webapp bench regress
 all: $(LIB) tests
 
 $(LIB): $(OBJ)
@@ -41,6 +42,10 @@ $(BENCH): tests/bench.c | $(BUILD)
 # วัด overhead มี/ไม่มี LD_PRELOAD แล้วเขียนผลลง tests/logs/bench.txt
 bench: $(LIB) $(BENCH)
 	bash tests/run_bench.sh
+
+# regression test ของกรณีขอบที่เคยแก้ (robust / errcheck / cycle ยาว / condvar)
+regress: all
+	bash tests/run_regress.sh
 
 $(BUILD):
 	mkdir -p $(BUILD)
