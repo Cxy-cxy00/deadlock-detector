@@ -8,6 +8,7 @@
 #   errcheck   ข้อ 2.4  unlock โดยคนที่ไม่ใช่เจ้าของ (EPERM) ต้องไม่ลบเจ้าของเดิม
 #   longcycle  ข้อ 2.7  cycle ยาว 70 รายงานเป็น partial path ไม่ปิดวงปลอม
 #   condvar    ข้อ 5.1  โปรแกรม condvar ที่ไม่มี deadlock ต้องไม่มีรายงาน และเตือนแค่ครั้งเดียว
+#   trace      DD_TRACE เขียน timeline ครบ และไม่ถูก process ลูก (addr2line) เขียนทับ
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
@@ -64,6 +65,22 @@ run_preload 20 ./build/condvar
 [ "$(count "$MARK")" -eq 0 ] && ok "ไม่มี [DEADLOCK DETECTED] (ไม่เตือนผิด)" || bad "มีรายงาน deadlock ทั้งที่ไม่มีจริง"
 [ "$(count "WARNING")" -le 1 ] && ok "WARNING ไม่เกิน 1 ครั้ง (ได้ $(count "WARNING"))" \
     || bad "WARNING ท่วม: $(count "WARNING") ครั้ง"
+
+echo "== trace (timeline ของหน้า playground)"
+TRACE="$(mktemp)"
+trap 'rm -f "$ERR" "$OUT" "$TRACE"' EXIT
+DD_TRACE="$TRACE" run_preload 3 ./build/bank
+head -1 "$TRACE" | grep -qxF "# dd-trace 1" && ok "มีหัวไฟล์ trace" || bad "ไฟล์ trace ว่างหรือไม่มีหัวไฟล์"
+# รายงานเรียก addr2line ผ่าน popen ซึ่งได้ LD_PRELOAD ไปด้วย ถ้า DD_TRACE ตกทอดไปถึงลูก
+# constructor ของลูกจะเปิดไฟล์ด้วย O_TRUNC ทับ timeline ทิ้ง เหลือแค่หัวไฟล์ของลูก
+# (ถอย unsetenv ใน trace.c ออกแล้วข้อนี้ได้ 0 — ทดสอบแล้ว)
+[ "$(grep -c ' wait ' "$TRACE")" -eq 4 ] && ok "wait ครบ 4 ครั้ง — ไม่ถูก process ลูกเขียนทับ" \
+    || bad "ควรมี wait 4 ครั้ง ได้ $(grep -c ' wait ' "$TRACE")"
+[ "$(grep -c ' cycle [0-9]* 1 2 2 0 ' "$TRACE")" -eq 1 ] && ok "cycle ใหม่ยาว 2 หนึ่งครั้ง" \
+    || bad "ควรมี cycle ใหม่ (fresh=1) ยาว 2 หนึ่งครั้ง"
+DD_TRACE="$TRACE" run_preload 20 ./build/condvar
+grep -q ' relx ' "$TRACE" && ok "condvar จด relx (unlock ไม่ตรงเจ้าของ)" || bad "condvar ไม่มี relx"
+[ "$(grep -c ' trunc$' "$TRACE")" -le 1 ] && ok "trunc ไม่เกิน 1 บรรทัด" || bad "trunc ซ้ำหลายบรรทัด"
 
 echo
 if [ "$fail" -eq 0 ]; then echo "ผ่านทุกข้อ"; exit 0; else echo "มีข้อที่ไม่ผ่าน"; exit 1; fi

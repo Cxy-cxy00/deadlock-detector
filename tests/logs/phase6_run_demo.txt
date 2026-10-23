@@ -1,0 +1,9 @@
+$ bash tests/run_demo.sh --no-pause
+   [ผ่าน]     ค้างจนหมดเวลา (exit 124)
+   [ผ่าน]     ยังค้างอยู่ (exit 124) — เครื่องมือตรวจ ไม่ได้แก้
+   [ผ่าน]     stderr มี [DEADLOCK DETECTED]
+   [ผ่าน]     ได้ไฟล์ cycle.dot และไม่ว่าง
+   [ผ่าน]     จบเองไม่ค้าง (exit 0)
+   [ผ่าน]     ไม่มี [DEADLOCK DETECTED] (ไม่เตือนผิด)
+   ผ่านทุกขั้น
+exit=0

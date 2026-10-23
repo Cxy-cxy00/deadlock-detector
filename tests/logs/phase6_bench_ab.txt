@@ -1,0 +1,20 @@
+# Phase 6 — overhead ของ DD_TRACE ตอน "ไม่ได้เปิด" (A/B กับ library ก่อนเพิ่ม trace)
+# เครื่อง: WSL2 kernel 6.18.33.2 · x86-64 (คนละรอบกับ bench.txt ตัวเลขดิบจึงเทียบกับ bench.txt ตรง ๆ ไม่ได้)
+# old.so = src/ ของ HEAD ก่อน Phase 6 · new = build/libdetect.so · รันสลับกันในรอบเดียวกัน
+# ./build/bench <mode> → median ns/pair (1,000,000 คู่ × 15 รอบ)
+
+## รอบแรก: state.c เรียก dd_trace_lock_event() ทุกครั้ง แล้วเช็ค fd ข้างใน
+old.so uncontended median=99.2    new uncontended median=109.5
+old.so uncontended median=96.1    new uncontended median=104.9
+old.so uncontended median=94.5    new uncontended median=104.4
+old.so contended   median=368.1   new contended   median=416.3
+old.so contended   median=370.4   new contended   median=404.8
+-> ช้าลงราว 10% ทั้งที่ไม่ได้เปิด trace (function call ข้ามไฟล์ 4 ครั้งต่อคู่ lock+unlock)
+
+## แก้: เช็ค DD_TRACING() (extern int hidden + __builtin_expect) ที่จุดเรียกใน state.c
+old.so uncontended median=97.4    new uncontended median=95.9
+old.so uncontended median=99.3    new uncontended median=99.5
+old.so uncontended median=98.1    new uncontended median=98.3
+old.so contended   median=373.9   new contended   median=364.5
+old.so contended   median=366.3   new contended   median=368.8
+-> เท่าเดิมภายในสัญญาณรบกวน
