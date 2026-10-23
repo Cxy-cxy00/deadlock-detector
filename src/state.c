@@ -33,9 +33,10 @@ static size_t    g_nholds = 0;
 /* ล็อกคุ้มครองตารางทั้งสอง — static init จึงใช้ได้ทันทีโดยไม่ต้องรอ init() */
 static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 
-/* เตือนเรื่องตารางเต็มแค่ครั้งเดียว ไม่งั้นท่วมจอจนหาอย่างอื่นไม่เจอ */
+/* เตือนเรื่องตารางเต็ม / unlock ไม่ตรงเจ้าของแค่ครั้งเดียว ไม่งั้นท่วมจอจนหาอย่างอื่นไม่เจอ */
 static int g_warned_waits = 0;
 static int g_warned_holds = 0;
+static int g_warned_owner = 0;
 
 /* ---- ล็อก/ปลดล็อกตาราง ----
  * ถ้า real_* ยังเป็น NULL แปลว่าอยู่ช่วงบูตที่ยังมี thread เดียว การไม่ล็อกจึงไม่อันตราย
@@ -178,9 +179,23 @@ void dd_state_released(dd_tid_t t, dd_mutex_t m) {
              * และเจ้าของจริงยังถือ lock อยู่ — ถ้าเราลบ entry ทิ้ง ตารางจะเข้าใจผิดว่าว่าง
              * แล้วพลาด cycle ที่ผ่าน mutex ตัวนี้  จึงคง entry ไว้
              * (NORMAL mutex กรณีนี้เป็น undefined behavior ของโปรแกรมเป้าหมายอยู่แล้ว)
+             *
+             * อีกสาเหตุที่พบบ่อยกว่ามาก: pthread_cond_wait ปล่อยและล็อก mutex คืนผ่าน
+             * ฟังก์ชันภายในของ glibc ที่ไม่ผ่าน wrapper ของเรา ตารางจึงยังจดคนที่เข้า
+             * cond_wait ล่าสุดเป็นเจ้าของ  พอคนที่ตื่นขึ้นมา unlock ก็มาตกกรณีนี้
+             * โปรแกรม condvar ธรรมดาจึงเจอได้หลายพันครั้ง -> เตือนครั้งเดียว ที่เหลือเป็น debug log
              */
-            dd_logf("[dd] WARNING: tid %lu ปลด mutex %p ที่ tid %lu ถืออยู่ "
-                    "— คงข้อมูลเจ้าของเดิมไว้\n", t, m, g_holds[i].holder);
+            if (!g_warned_owner) {
+                g_warned_owner = 1;
+                dd_logf("[dd] WARNING: tid %lu ปลด mutex %p ที่ตารางจดว่า tid %lu ถืออยู่ "
+                        "— คงข้อมูลเจ้าของเดิมไว้\n", t, m, g_holds[i].holder);
+                dd_logf("[dd]          สาเหตุที่พบบ่อย: pthread_cond_wait (ยังไม่รองรับ) "
+                        "หรือ unlock โดยคนที่ไม่ใช่เจ้าของ\n");
+                dd_logf("[dd]          เตือนครั้งเดียว ครั้งถัดไปดูได้ด้วย DD_VERBOSE=1\n");
+            } else {
+                dd_dbgf("WARNING: tid %lu ปลด mutex %p ที่ตารางจดว่า tid %lu ถืออยู่\n",
+                        t, m, g_holds[i].holder);
+            }
         } else {
             g_holds[i] = g_holds[g_nholds - 1];
             g_nholds--;

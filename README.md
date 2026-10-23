@@ -127,6 +127,7 @@ tests/
   sample_webapp.c ตัวอย่างหน้าตาเหมือนโค้ดจริง (pool/stats ล็อกสวนกัน) ใช้ barrier เช่นกัน
   two_pairs.c    deadlock 2 วงพร้อมกัน — ต้องรายงานครบทั้งสองวง
   cycle3.c       deadlock 3 thread วนเป็นวง a -> b -> c -> a (barrier ให้เกิดทุกครั้ง)
+  condvar.c      สอง thread ผลัดกันด้วย condvar ไม่มี deadlock — ต้องไม่มีรายงาน และเตือนแค่ครั้งเดียว
   bench.c        วัด overhead (make bench -> tests/logs/bench.txt)
   run_demo.sh    ลำดับขั้นตอน demo ตอนนำเสนอ พร้อมเงื่อนไขผ่าน/ไม่ผ่าน
   logs/          ผลรันจริงที่อ้างใน README (env, test matrix, demo)
@@ -237,6 +238,12 @@ bash tests/run_demo.sh --no-pause # รันรวดเดียว — exit 0
 - **ไม่รองรับ** condition variable · `pthread_mutex_timedlock` · rwlock · semaphore ·
   recursive mutex (ล็อกซ้ำจะนับเป็นครั้งเดียว) · process-shared mutex · static binary ·
   `fork()` แบบไม่ `exec` (TID ที่ cache ไว้จะผิด)
+- **โปรแกรมที่ใช้ condition variable** — `pthread_cond_wait` ปล่อย/ล็อก mutex คืนภายใน glibc
+  โดยไม่ผ่านเครื่องมือ ตารางจึงจดเจ้าของ mutex ผิดคนเป็นช่วง ๆ ผลคือ:
+  เตือน `ปลด mutex ที่ตารางจดว่า ... ถืออยู่` **ครั้งเดียว** (ที่เหลือดูได้ด้วย `DD_VERBOSE=1`) และ
+  **อาจตรวจไม่เจอ** deadlock ที่ผ่าน mutex ตัวนั้น — ไม่ทำให้รายงาน deadlock ปลอม
+  เพราะ thread ที่อยู่ใน `cond_wait` ไม่มี wait edge จึงอยู่ใน cycle ไม่ได้
+  ([`phase5_condvar.txt`](tests/logs/phase5_condvar.txt))
 - **รายงานได้สูงสุด 16 cycle ต่อการตรวจหนึ่งรอบ** (`DD_MAX_CYCLES`) วงที่เกินจะไม่ถูกรายงานในรอบนั้น
   หน้า playground แสดงรายงานแค่วงสุดท้ายในภาพ (stderr ดิบยังมีครบทุกวง)
 - **ตารางมีขนาดจำกัด** (รอได้ 256 thread · ถือได้ 1024 mutex · รายงาน cycle ได้ยาวสุด 64)

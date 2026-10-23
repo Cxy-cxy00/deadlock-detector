@@ -14,7 +14,7 @@ OBJ      := $(patsubst src/%.c,$(BUILD)/%.o,$(SRC))
 DEPS     := $(OBJ:.o=.d)
 LIB      := $(BUILD)/libdetect.so
 TESTS    := $(BUILD)/bank $(BUILD)/no_deadlock $(BUILD)/sample_webapp $(BUILD)/two_pairs \
-            $(BUILD)/cycle3
+            $(BUILD)/cycle3 $(BUILD)/condvar
 BENCH    := $(BUILD)/bench
 
 .PHONY: all tests clean demo playground sample_webapp bench

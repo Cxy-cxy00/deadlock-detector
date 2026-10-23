@@ -1,0 +1,24 @@
+# ข้อ 5.1 — โปรแกรม condvar ที่ไม่มี deadlock ทำให้ WARNING ท่วมจอ
+# เครื่อง: glibc 2.39 · gcc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0 · kernel 6.18.44-fc-v153 · x86_64
+# (คนละเครื่องกับ env.txt — ยืนยันว่าใช้ได้บน glibc รุ่นเก่ากว่าด้วย)
+
+## ก่อนแก้: libdetect.so จาก commit 2f4402a
+# timeout 20s env LD_PRELOAD=<HEAD>/build/libdetect.so ./build/condvar
+exit=0
+stdout: PASS: ผลัดกันครบ 2000 รอบต่อ thread
+WARNING: 3567 บรรทัด · [DEADLOCK DETECTED]: 0
+---- stderr 3 บรรทัดแรก ----
+[dd] WARNING: tid 3772 ปลด mutex 0x55682c3ce040 ที่ tid 3773 ถืออยู่ — คงข้อมูลเจ้าของเดิมไว้
+[dd] WARNING: tid 3773 ปลด mutex 0x55682c3ce040 ที่ tid 3772 ถืออยู่ — คงข้อมูลเจ้าของเดิมไว้
+[dd] WARNING: tid 3772 ปลด mutex 0x55682c3ce040 ที่ tid 3773 ถืออยู่ — คงข้อมูลเจ้าของเดิมไว้
+
+## หลังแก้
+รอบ 1: exit=0 · WARNING: 1 · [DEADLOCK DETECTED]: 0 · PASS: ผลัดกันครบ 2000 รอบต่อ thread
+รอบ 2: exit=0 · WARNING: 1 · [DEADLOCK DETECTED]: 0 · PASS: ผลัดกันครบ 2000 รอบต่อ thread
+รอบ 3: exit=0 · WARNING: 1 · [DEADLOCK DETECTED]: 0 · PASS: ผลัดกันครบ 2000 รอบต่อ thread
+รอบ 4: exit=0 · WARNING: 1 · [DEADLOCK DETECTED]: 0 · PASS: ผลัดกันครบ 2000 รอบต่อ thread
+รอบ 5: exit=0 · WARNING: 1 · [DEADLOCK DETECTED]: 0 · PASS: ผลัดกันครบ 2000 รอบต่อ thread
+---- stderr รอบสุดท้าย ----
+[dd] WARNING: tid 3816 ปลด mutex 0x55853f334040 ที่ตารางจดว่า tid 3817 ถืออยู่ — คงข้อมูลเจ้าของเดิมไว้
+[dd]          สาเหตุที่พบบ่อย: pthread_cond_wait (ยังไม่รองรับ) หรือ unlock โดยคนที่ไม่ใช่เจ้าของ
+[dd]          เตือนครั้งเดียว ครั้งถัดไปดูได้ด้วย DD_VERBOSE=1
