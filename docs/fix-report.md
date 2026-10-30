@@ -1,7 +1,7 @@
 # รายงานการแก้เพื่อเพิ่ม Perfection
 
 เป้าหมาย: ทำให้เครื่องมือ "ทำงานจริง พิสูจน์ได้ และไม่อ้างเกินจริง" โดยไม่เพิ่ม feature นอกรายการ
-ทำตามลำดับ Phase 0 → 3 และ 4.1 · 1 ข้อ = 1 commit · หลักฐานทุกข้ออยู่ใน [`tests/logs/`](../tests/logs/)
+ทำตามลำดับ Phase 0 → 7 · 1 ข้อ = 1 commit · หลักฐานทุกข้ออยู่ใน [`tests/logs/`](../tests/logs/)
 
 ## สภาพแวดล้อมและวิธีตรวจ
 
@@ -104,6 +104,15 @@ stderr บอกว่า `ld.so: object '/mnt/c/Users/frank/Documents/Bachelor'
 | 6.3 | รอบแรกช้าลงราว 10% **ทั้งที่ไม่ได้เปิด** trace (function call ข้ามไฟล์ 4 ครั้งต่อคู่ lock+unlock) | เช็ค `DD_TRACING()` ที่จุดเรียกใน `state.c` (`extern int` แบบ hidden) | A/B กับ library ก่อน Phase 6 รันสลับกัน: uncontended 97–99 ns ทั้งคู่ · contended 364–374 ns ทั้งคู่ (`phase6_bench_ab.txt`) |
 | 6.4 | อีก thread แทรกกลาง wait → unwait → acq ทำให้ "ล็อกได้ทันที" แสดงเป็น "ต้องรอ" · ลูกศรสองทิศทับกัน | รวมขั้นจากเหตุการณ์ถัดไปของ thread เดียวกัน · แยกความสูง / ฝั่งของเส้นโค้ง | ภาพหลังแก้ใน `phase6_playground_ui.txt` |
 
+## Phase 7 — เตือน lock-order inversion ล่วงหน้า
+
+ทดสอบบน WSL2 kernel 6.6.114.1 · glibc 2.43 · gcc 15.2.0 — `make clean && make` ไม่มี warning,
+`run_demo.sh --no-pause` ผ่านทุกขั้น, `make regress` ผ่านทุกข้อรวมข้อใหม่ (`phase7_regress.txt`)
+
+| ข้อ | เจออะไร / ทำไมต้องแก้ | ทำอะไร | ตรวจยังไง ผลเป็นอย่างไร |
+| --- | --- | --- | --- |
+| 7.1 | `dd_detector_note_order` เป็น TODO ว่าง · README / สไลด์ระบุว่า "ยังไม่ได้ทำ" · stub บอกให้เรียกจาก `dd_state_acquired` ซึ่งจะไม่เห็นคู่ของ deadlock จริงเลย (lock ตัวที่สองไม่มีวันได้มา) | `state.c`: ตอน `wait_begin` จดคู่ (ตัวที่ถือ → ตัวที่ขอ) ลง hash ขนาดคงที่ เจอคู่กลับทางก็เข้าคิว · `detector.c`: หยิบคิวก่อนถ่าย snapshot กราฟ ข้ามคู่ที่อยู่ในวง deadlock รอบนี้ พิมพ์ `[LOCK ORDER INVERSION]` ผ่าน `report.c` · พิมพ์คิวที่ค้างตอน destructor · ลบ stub · `tests/lockorder.c` + ข้อ lockorder ใน `run_regress.sh` | lockorder: exit 0 เตือน 1 ครั้ง ชี้ `lockorder.c:31/32/42/43` · bank **10/10** ได้ deadlock อย่างเดียว ไม่มี inversion แทรก · sample_webapp / two_pairs / cycle3 / robust / errcheck ไม่มี inversion · no_deadlock / condvar ไม่มีทั้งสองอย่าง · **ถอย fix (ลบการเรียก `note_order`) → ข้อ lockorder ไม่ผ่าน** (`phase7_lockorder.txt`) · A/B overhead: uncontended +1 ns, contended ราว +5% (`phase7_bench_ab.txt`) · `make bench` วัดใหม่แล้วอัปเดตตัวเลขใน README / สไลด์ |
+
 ## Test matrix ก่อน / หลัง
 
 | กรณี | baseline (path มีช่องว่าง) | baseline (`~/dd`) | หลัง Phase 1 | หลัง Phase 2 |
@@ -136,6 +145,6 @@ stderr บอกว่า `ld.so: object '/mnt/c/Users/frank/Documents/Bachelor'
 - เลข thread id และที่อยู่ mutex ในรายงานเปลี่ยนทุกครั้งที่รัน ตัวอย่างใน README เป็นของรอบหนึ่ง
 - ~~ตัวอย่าง bank / cycle3 ใน playground ใช้ `usleep`~~ แก้แล้วใน 5.3
 - ~~โปรแกรมทดสอบชั่วคราวของ 2.3 / 2.4 / 2.7 ไม่อยู่ใน repo~~ เป็น `make regress` แล้วใน 5.2
-- `tests/logs/bench.txt` ยังเป็นผลของเครื่องเดิม (kernel 6.6) ตัวเลขใน README มาจากไฟล์นั้น ไม่ได้วัดใหม่ใน Phase 6
-  (Phase 6 วัดแค่ A/B ว่า trace ไม่เพิ่ม overhead)
+- ~~`tests/logs/bench.txt` ยังเป็นผลของเครื่องเดิม~~ วัดใหม่ใน Phase 7 หลังเพิ่มการจดลำดับการล็อก (ตาราง Phase 3 ข้างบนคงตัวเลขเดิมไว้เป็นประวัติ)
+- lock-order inversion ตรวจแค่คู่ 2 mutex — วงลำดับยาว (แบบ lockdep) ยังไม่ได้ทำ
 - ~~ปุ่มบนหน้า playground ยังไม่ได้ลองกดจริง~~ กดจริงแล้วใน 5.3 (headless Chromium บน Linux — ยังไม่ได้ลองบนเบราว์เซอร์ของเครื่องที่จะ present)

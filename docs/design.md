@@ -9,7 +9,7 @@
 - รายงานทุก cycle ที่เจอในการตรวจหนึ่งรอบ (สูงสุด 16 วง วงละครั้ง) พร้อม `file:line` (PIE + `-g` + `addr2line`) · export Graphviz
 - cycle ยาวเกิน `DD_MAX_CYCLE_LEN` รายงานเป็น partial path
 - robust mutex เฉพาะ 2 กรณี: `EOWNERDEAD` นับว่าได้ lock · unlock โดยคนที่ไม่ใช่เจ้าของไม่ลบเจ้าของเดิม
-- **ยังไม่ทำ:** เตือน lock-order inversion ล่วงหน้า
+- เตือน lock-order inversion ล่วงหน้า (`[LOCK ORDER INVERSION]`) เฉพาะคู่ 2 mutex (Phase 7)
 - ข้อจำกัดทั้งหมดอยู่ที่หัวข้อ Limitations ใน README
 
 ## การตัดสินใจที่ลงตัวแล้ว
@@ -48,6 +48,24 @@ glibc รุ่นใหม่ทำ `popen` ด้วย `posix_spawn` (child e
 - pc แปลงเป็นบรรทัดฝั่ง server (`addr2line` ครั้งเดียวทั้งไฟล์) ไม่ใช่ใน lock path ใช้ load base จาก
   `dl_iterate_phdr` ที่จดไว้ตอน constructor — สูตรนี้ใช้ได้ทั้ง PIE (base จริง) และ non-PIE (base = 0)
 
+**lock-order inversion: จดใน lock path พิมพ์ใน detector thread**
+- จดตอน `wait_begin` ไม่ใช่ `acquired` — ตอน deadlock จริง lock ตัวที่สองไม่มีวันได้มา ถ้าจดตอนได้ lock จะไม่เห็นคู่นั้นเลย
+  (stub เดิมใน `detector.h` เขียนว่าเรียกจาก `dd_state_acquired` ซึ่งผิดด้วยเหตุผลนี้)
+- ไม่จด `trylock` — ไม่มีวันค้าง โค้ดแบบ "ลองแล้วถอย" จึงไม่ใช่ความเสี่ยง
+- ตารางคู่ลำดับเป็น hash แบบ open addressing ใน `state.c` ไม่ใช่ linear search แบบ waits/holds
+  เพราะโตตามจำนวน "คู่ที่เคยเห็นตลอดอายุโปรแกรม" ไม่ใช่สถานะ ณ ตอนนี้  ยังเป็น static array ห้าม malloc
+  ใส่ได้แค่ 3/4 ของตาราง (probe ไม่ยาว) และไม่เคยลบ จึงไม่ต้องมี tombstone
+- เจอคู่กลับทางแล้วพิมพ์ทันทีไม่ได้ (ต้องเรียก `addr2line`) จึงฝากเข้าคิวขนาดคงที่ให้ detector thread หยิบไปพิมพ์
+- ไม่เตือนซ้ำถ้าคู่นั้นค้างเป็น deadlock แล้ว: detector หยิบคิว **ก่อน** ถ่าย snapshot กราฟ
+  inversion ที่มาจาก deadlock จริงมีวงอยู่ตั้งแต่ตอนถูกจด และวง deadlock ไม่มีวันหายเอง snapshot ที่ถ่ายทีหลังจึงเห็นวงแน่
+  ถ้าสลับลำดับ inversion อาจเข้าคิวหลัง snapshot แล้วถูกพิมพ์แทรกรายงานของ `bank`
+- พิมพ์คิวที่ค้างตอน destructor ด้วย — โปรแกรมที่ลำดับขัดกันแต่ "ยังไม่ค้าง" คือโปรแกรมที่จบเอง
+  และมักจบเร็วกว่าคาบเดียวของ detector
+- รูปแบบรายงานเลี่ยงคำว่า `WARNING`, `holds`/`waiting` และบรรทัด `Thread <tid>` เดี่ยว ๆ
+  เพราะ `run_regress.sh` นับ `WARNING` และ `tools/playground.py` อ่านบรรทัดพวกนั้นเป็นรายงาน deadlock
+- ตรวจแค่คู่ 2 mutex ไม่หาวงลำดับยาว (แบบ lockdep) — วงยาวต้องเก็บ adjacency ของคู่ทั้งหมดแล้ว DFS
+  ซึ่งทำใน detector thread ได้ แต่เกิน scope รอบนี้  วงยาวที่ค้างจริงยังได้ `[DEADLOCK DETECTED]`
+
 ## เรื่องที่รู้ตอนลงมือทำจริง
 
 - **กราฟนี้มี out-degree ไม่เกิน 1** เพราะ thread ค้างใน `pthread_mutex_lock` ได้ทีละ mutex เดียว
@@ -83,6 +101,7 @@ glibc รุ่นใหม่ทำ `popen` ด้วย `posix_spawn` (child e
   และ buffer ของ stdio จะไม่ถูก flush ถ้าโปรแกรมไม่เคยจบ
 - ลำดับ `wait_begin` -> `real_lock` -> `wait_end` ต้องถูกต้องเสมอ ถ้า `real_lock` คืน error
   ก็ยังต้องลบ wait edge ไม่งั้นจะมี edge ผีค้างแล้วรายงาน deadlock ที่ไม่มีจริง
+- คำเตือน lock-order inversion มาจากตาราง holds — ถ้าตารางจดเจ้าของผิด (เช่น condvar) คำเตือนก็ผิดตาม
 - `dd_state_released` ต้องจดก่อนปล่อยจริง ไม่งั้น thread อื่นอาจคว้า mutex ไปแล้วจดตัวเองเป็นเจ้าของ
   พอเรามาจดทีหลังจะไปลบข้อมูลของเขาทิ้ง
 
