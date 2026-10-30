@@ -716,7 +716,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         <div class="note-strip reveal" style="--d:8"><span>One lock at a time → <b>max one arrow out</b> → just follow the arrows.</span><span class="chip a">finds every loop · up to 16</span></div>
     </div>
     <div class="foot"><span class="spk spk-c" data-spk="C">Speaker C · นายชญานิน เอี่ยมสกุล · 6730300094</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span class="on">3 Check</span><span>4 Report</span></div><span class="num"><b>09</b> / 16</span></div>
-    <aside class="notes">[Speaker C — นายชญานิน เอี่ยมสกุล · 0:37 · 68 words] We use a wait-for graph. Each circle is a thread. An arrow means, "I am waiting for you." Thread 1 waits for Thread 2. Thread 2 waits for Thread 1. The arrows make a loop. That loop is the deadlock. A thread waits for only one lock at a time. So each circle has one arrow out. We just follow the arrows. Now ___ will explain the report.</aside>
+    <aside class="notes">[Speaker C — นายชญานิน เอี่ยมสกุล · 0:37 · 68 words] We use a wait-for graph. Each circle is a thread. An arrow means, "I am waiting for you." Thread 1 waits for Thread 2. Thread 2 waits for Thread 1. The arrows make a loop. That loop is the deadlock. A thread waits for only one lock at a time. So each circle has one arrow out. We just follow the arrows. Now Thatthorn will explain the report.</aside>
 </section>
 
 <!-- 10 STEP 4 — REPORT -->
@@ -748,7 +748,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         <div class="small-print reveal" style="--d:7"><span class="chip a">code lines: dladdr + addr2line · needs -g and PIE</span><span class="chip a">DD_DOT_OUT → picture (Graphviz)</span></div>
     </div>
     <div class="foot"><span class="spk spk-d" data-spk="D">Speaker D · นายธรรศธรณ์ เจียมตน · 6730300779</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span>3 Check</span><span class="on">4 Report</span></div><span class="num"><b>10</b> / 16</span></div>
-    <aside class="notes">[Speaker D — นายธรรศธรณ์ เจียมตน · 0:40 · 71 words] Step four is report. This is real output. It says: deadlock detected, two threads in a loop. 514 and 513 are thread IDs from Linux. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint shows the fix. Always lock in the same order. Now ___ will show how we tested.</aside>
+    <aside class="notes">[Speaker D — นายธรรศธรณ์ เจียมตน · 0:40 · 71 words] Step four is report. This is real output. It says: deadlock detected, two threads in a loop. 514 and 513 are thread IDs from Linux. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint shows the fix. Always lock in the same order. Now Pattanadech will show how we tested.</aside>
 </section>
 
 <!-- 11 HOW WE TESTED -->
@@ -778,7 +778,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
     </div>
     <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E · นายพัฒนเดช มะหิเมือง · 6730300850</span><span class="num"><b>11</b> / 16</span></div>
-    <aside class="notes">[Speaker E — นายพัฒนเดช มะหิเมือง · 0:20 · 39 words] We tested three kinds of programs. Some must deadlock, with two, three, or seventy threads. Some must never deadlock. One must only warn. We use a barrier, not sleep, so the deadlock happens every time. Let us show you.</aside>
+    <aside class="notes">[Speaker E — นายพัฒนเดช มะหิเมือง · 0:23 · 43 words] Our tests have three groups. First, programs that must deadlock. Second, programs that must stay quiet. No false alarm. Third, hard cases, like seventy threads in one loop. We use a barrier, not sleep. So the deadlock happens every time. Now, the demo.</aside>
 </section>
 
 <!-- =========================================================
@@ -799,7 +799,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
     </div>
     <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E · นายพัฒนเดช มะหิเมือง · 6730300850</span><span class="num"><b>12</b> / 16</span></div>
     <aside class="notes">[Speaker E — นายพัฒนเดช มะหิเมือง · 1:50 · demo] If time is short, skip step 3.
-STEP 1 — type: timeout 3 ./build/bank — say: This is the bank program, with no tool. It stops. There is no message at all. Exit code 124 means timeout stopped it.
+STEP 1 — type: timeout 3 ./build/bank — say: This is the bank program, with no tool. It just hangs. There is no message at all. Exit code 124 means timeout stopped it.
 STEP 2 — type: timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank — say: Same command. We only add LD_PRELOAD. It still hangs, but now we know why. Look at lines 65, 70, 89 and 94.
 STEP 3 — type: DD_DOT_OUT=cycle.dot timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank; dot -Tpng cycle.dot -o cycle.png — say: We can save the loop as a picture. Red arrows mean waiting.
 STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock — say: This version locks in the same order. It always locks Alice before Bob. It finishes with exit code 0. There is no report. So there is no false alarm.</aside>
@@ -837,7 +837,7 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
         <div class="takeaway reveal" style="--d:6">Good for finding bugs. <span class="muted">Too slow to leave on all the time.</span></div>
     </div>
     <div class="foot"><span class="spk spk-d" data-spk="D">Speaker D · นายธรรศธรณ์ เจียมตน · 6730300779</span><span class="num"><b>13</b> / 16</span></div>
-    <aside class="notes">[Speaker D — นายธรรศธรณ์ เจียมตน · 0:40 · 72 words] Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. No false alarm. Lockorder only gives a warning. In twenty runs, it found the deadlock every time. But the tool has a cost. Each lock and unlock costs about 70 nanoseconds more. That is 31 times slower. Use it for testing only. Now ___ will talk about the limits.</aside>
+    <aside class="notes">[Speaker D — นายธรรศธรณ์ เจียมตน · 0:40 · 72 words] Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. No false alarm. Lockorder only gives a warning. In twenty runs, it found the deadlock every time. But the tool has a cost. Each lock and unlock costs about 70 nanoseconds more. That is 31 times slower. Use it for testing only. Now Pattanadech will talk about the limits.</aside>
 </section>
 
 <!-- 14 LIMITS & EARLY WARNING -->
@@ -853,7 +853,7 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
         </div>
     </div>
     <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E · นายพัฒนเดช มะหิเมือง · 6730300850</span><span class="num"><b>14</b> / 16</span></div>
-    <aside class="notes">[Speaker E — นายพัฒนเดช มะหิเมือง · 0:15 · 28 words] Now, the limits. It works only on Linux, with normal mutex locks. It finds a deadlock after it happens. But it also warns early about opposite lock orders.</aside>
+    <aside class="notes">[Speaker E — นายพัฒนเดช มะหิเมือง · 0:18 · 33 words] Now, the limits. It works only on Linux, with normal mutex locks. It finds a deadlock after it happens. But it also warns early about opposite lock orders. Now Phutawan will sum up.</aside>
 </section>
 
 <!-- 15 SUMMARY -->

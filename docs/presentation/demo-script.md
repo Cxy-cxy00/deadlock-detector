@@ -12,7 +12,7 @@ timeout 3 ./build/bank; echo "exit=$?"
 ```
 
 > This is the bank program, with no tool.
-> It stops.
+> It just hangs.
 > There is no message at all.
 > Exit code 124 means timeout stopped it.
 
@@ -58,4 +58,4 @@ timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock; echo "exit=$
 
 ส่งต่อ Speaker D (นายธรรศธรณ์ เจียมตน · สไลด์ 13):
 
-> Now ___ will show our results.
+> Now Thatthorn will show our results.

@@ -57,7 +57,7 @@ timeout 3 ./build/bank; echo "exit=$?"
 **จะเห็น:** `[t1] lock alice` … `[t1] lock bob ...` แล้วนิ่ง 3 วินาที → `exit=124`
 
 **พูด:**
-> This is the bank program, with no tool. It stops. There is no message at all. Exit code 124 means timeout stopped it.
+> This is the bank program, with no tool. It just hangs. There is no message at all. Exit code 124 means timeout stopped it.
 
 ### ขั้น 2 — คำสั่งเดิม เติม LD_PRELOAD (ประมาณ 35 วินาที)
 
