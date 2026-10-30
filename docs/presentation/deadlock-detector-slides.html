@@ -225,7 +225,7 @@ p, li, td, th { font-family: var(--font-body); color: var(--text); }
     display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px;
 }
 .team div { border-top: 2px solid var(--line); padding-top: 18px; }
-.team b { display: block; font: 700 25px/1.25 var(--font-body); color: var(--text); }
+.team b { display: block; font: 700 25px/1.25 var(--font-body), 'IBM Plex Sans Thai', sans-serif; color: var(--text); }
 .team span { display: block; margin-top: 8px; font: 500 21px/1 var(--font-mono); color: var(--dim); }
 
 /* ===========================================
@@ -344,7 +344,7 @@ p, li, td, th { font-family: var(--font-body); color: var(--text); }
 .wfg { display: flex; gap: 46px; align-items: flex-start; }
 .ttable { width: 820px; border-collapse: collapse; }
 .ttable th { text-align: left; font: 500 22px/1 var(--font-mono); color: var(--dim); padding: 0 0 14px; border-bottom: 1px solid var(--line); }
-.ttable td { font: 500 28px/1.2 var(--font-mono); padding: 18px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.ttable td { font: 500 26px/1.2 var(--font-mono); padding: 18px 22px 18px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
 .ttable td:first-child { color: var(--dim); width: 150px; padding-right: 24px; white-space: nowrap; }
 .ttable tr.found td { color: var(--amber); border-bottom: none; padding-top: 22px; }
 .graph { flex: 1; padding: 20px 20px 10px; text-align: center; }
@@ -502,21 +502,21 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         <div class="term reveal" style="--d:3"><span class="ps">$</span> LD_PRELOAD=./build/libdetect.so ./your_program</div>
     </div>
     <div class="team">
-        <div class="reveal" style="--d:4"><b>Supawit Chaiyanusak</b><span>6730300591</span></div>
-        <div class="reveal" style="--d:5"><b>Chayanin Iamsakul</b><span>6730300094</span></div>
-        <div class="reveal" style="--d:6"><b>Pattanadech Mahimuang</b><span>6730300850</span></div>
-        <div class="reveal" style="--d:7"><b>Thatthorn Jiamton</b><span>6730300779</span></div>
-        <div class="reveal" style="--d:8"><b>Phutawan Supkerd</b><span>6730300884</span></div>
+        <div class="reveal" style="--d:4"><b>นายศุภวิชญ์ ไชยานุศักดิ์</b><span>6730300591</span></div>
+        <div class="reveal" style="--d:5"><b>นายชญานิน เอี่ยมสกุล</b><span>6730300094</span></div>
+        <div class="reveal" style="--d:6"><b>พัฒนเดช มะหิเมือง</b><span>6730300850</span></div>
+        <div class="reveal" style="--d:7"><b>นายธรรศธรณ์ เจียมตน</b><span>6730300779</span></div>
+        <div class="reveal" style="--d:8"><b>นายภูตะวัน ทรัพย์เกิด</b><span>6730300884</span></div>
     </div>
-    <div class="foot"><span class="spk spk-a" data-spk="A">Speaker A</span><span class="num"><b>01</b> / 16</span></div>
-    <aside class="notes">[Speaker A · 0:10 · 15 words] Hello everyone. Our project is the Deadlock Detector. It finds deadlocks without changing the code.</aside>
+    <div class="foot"><span class="spk spk-a" data-spk="A">Speaker A · นายภูตะวัน ทรัพย์เกิด · 6730300884</span><span class="num"><b>01</b> / 16</span></div>
+    <aside class="notes">[Speaker A — นายภูตะวัน ทรัพย์เกิด · 0:10 · 15 words] Hello everyone. Our project is the Deadlock Detector. It finds deadlocks without changing the code.</aside>
 </section>
 
 <!-- 02 THE PROBLEM -->
 <section class="slide" data-part="PART 1 · PRESENT">
     <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b>/tests/bank.c</span><span class="part">PART 1 · PRESENT</span></div>
     <div class="content">
-        <div class="kicker reveal">The problem</div>
+        <div class="kicker reveal">The problem — a bank transfer</div>
         <h2 class="reveal" style="--d:1">Two threads. Two locks. Stuck forever.</h2>
         <div class="lanes">
             <div class="lane">
@@ -532,8 +532,8 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
         <div class="punch reveal" style="--d:8">No crash. No error. 0% CPU. <span>It just stops.</span></div>
     </div>
-    <div class="foot"><span class="spk spk-a" data-spk="A">Speaker A</span><span class="num"><b>02</b> / 16</span></div>
-    <aside class="notes">[Speaker A · 0:30 · 55 words] Look at this bank program. Two threads move money. Thread 1 moves money from Alice to Bob. Thread 2 moves money from Bob to Alice. Thread 1 locks Alice first. Thread 2 locks Bob first. Now each one waits for the other. Nobody lets go. The program does not crash. It shows no error. It just stops.</aside>
+    <div class="foot"><span class="spk spk-a" data-spk="A">Speaker A · นายภูตะวัน ทรัพย์เกิด · 6730300884</span><span class="num"><b>02</b> / 16</span></div>
+    <aside class="notes">[Speaker A — นายภูตะวัน ทรัพย์เกิด · 0:30 · 55 words] Look at this bank program. Two threads move money. Thread 1 moves money from Alice to Bob. Thread 2 moves money from Bob to Alice. Thread 1 locks Alice first. Thread 2 locks Bob first. Now each one waits for the other. Nobody lets go. The program does not crash. It shows no error. It just stops.</aside>
 </section>
 
 <!-- 03 COFFMAN CONDITIONS -->
@@ -550,8 +550,8 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
         <div class="rule reveal" style="--d:7">All 4 true <span class="red">→ deadlock.</span> Break one <span class="green">→ no deadlock.</span></div>
     </div>
-    <div class="foot"><span class="spk spk-a" data-spk="A">Speaker A</span><span class="num"><b>03</b> / 16</span></div>
-    <aside class="notes">[Speaker A · 0:25 · 45 words] A deadlock needs four conditions. First, mutual exclusion: one thread per lock. Second, hold and wait: each holds one, wants another. Third, no preemption: nobody can take a lock away. Fourth, circular wait: they wait in a loop. Remove one, and there is no deadlock.</aside>
+    <div class="foot"><span class="spk spk-a" data-spk="A">Speaker A · นายภูตะวัน ทรัพย์เกิด · 6730300884</span><span class="num"><b>03</b> / 16</span></div>
+    <aside class="notes">[Speaker A — นายภูตะวัน ทรัพย์เกิด · 0:25 · 45 words] A deadlock needs four conditions. First, mutual exclusion: one thread per lock. Second, hold and wait: each holds one, wants another. Third, no preemption: nobody can take a lock away. Fourth, circular wait: they wait in a loop. Remove one, and there is no deadlock.</aside>
 </section>
 
 <!-- 04 OUR GOAL -->
@@ -568,8 +568,8 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         <div class="nos reveal" style="--d:5"><span class="chip a">No code change</span><span class="chip a">No rebuild</span></div>
         <div class="term reveal" style="--d:6"><span class="ps">$</span> <span class="hl">LD_PRELOAD=./build/libdetect.so</span> ./your_program</div>
     </div>
-    <div class="foot"><span class="spk spk-a" data-spk="A">Speaker A</span><span class="num"><b>04</b> / 16</span></div>
-    <aside class="notes">[Speaker A · 0:15 · 25 words] Our goal is simple. Find the deadlock. Show the threads, the locks, and the code lines. Do not change the code. Do not rebuild it.</aside>
+    <div class="foot"><span class="spk spk-a" data-spk="A">Speaker A · นายภูตะวัน ทรัพย์เกิด · 6730300884</span><span class="num"><b>04</b> / 16</span></div>
+    <aside class="notes">[Speaker A — นายภูตะวัน ทรัพย์เกิด · 0:15 · 25 words] Our goal: find the deadlock. Show the threads, locks, and code lines. No code change. No rebuild. Now Frank will show how our tool works.</aside>
 </section>
 
 <!-- 05 BIG PICTURE -->
@@ -589,7 +589,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
     </div>
     <div class="foot"><span class="spk spk-b" data-spk="B">Speaker B · นายศุภวิชญ์ ไชยานุศักดิ์ · 6730300591</span><span class="num"><b>05</b> / 16</span></div>
-    <aside class="notes">[Speaker B — นายศุภวิชญ์ ไชยานุศักดิ์ · 0:20 · 37 words] Here is the big picture. Our tool has four steps. First, catch every lock call. Second, record who holds and who waits. Third, check for a loop. Fourth, report it. Each step is one source file.</aside>
+    <aside class="notes">[Speaker B — นายศุภวิชญ์ ไชยานุศักดิ์ · 0:20 · 34 words] Thank you. I'm Frank. Now, how does our tool work? It has four steps. One: catch every lock call. Two: record who holds and who waits. Three: check for a loop. Four: report it.</aside>
 </section>
 
 <!-- 06 STEP 1 — CATCH (LD_PRELOAD) -->
@@ -600,13 +600,13 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         <h2 class="reveal" style="--d:1">LD_PRELOAD puts us in front</h2>
         <div class="row">
             <div class="layers">
-                <div class="layer reveal" style="--d:2"><h3>Your program</h3><div class="code">pthread_mutex_lock(&amp;A)</div></div>
+                <div class="layer reveal" style="--d:2"><h3>Your program</h3><div class="code">pthread_mutex_lock(&amp;alice.lock)</div></div>
                 <div class="down reveal" style="--d:2">↓</div>
                 <div class="layer ours reveal" style="--d:3"><h3 class="amber">libdetect.so — our library</h3>
                     <ol>
-                        <li><b>1</b>note <span class="red">"waiting for A"</span></li>
+                        <li><b>1</b>note <span class="red">"waiting for Alice"</span></li>
                         <li><b>2</b>call the real lock</li>
-                        <li><b>3</b>note <span class="green">"got A"</span></li>
+                        <li><b>3</b>note <span class="green">"got Alice"</span></li>
                     </ol>
                 </div>
                 <div class="down reveal" style="--d:4">↓</div>
@@ -626,7 +626,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
     </div>
     <div class="foot"><span class="spk spk-b" data-spk="B">Speaker B · นายศุภวิชญ์ ไชยานุศักดิ์ · 6730300591</span><div class="steps"><span class="on">1 Catch</span><span>2 Record</span><span>3 Check</span><span>4 Report</span></div><span class="num"><b>06</b> / 16</span></div>
-    <aside class="notes">[Speaker B — นายศุภวิชญ์ ไชยานุศักดิ์ · 0:30 · 55 words] Step one is catch. A mutex is a lock. Only one thread can hold it. LD_PRELOAD tells Linux to load our library first. So our lock function runs before the real one. It notes waiting. Then it calls the real lock. Then it notes got it. We catch three functions: lock, trylock and unlock.</aside>
+    <aside class="notes">[Speaker B — นายศุภวิชญ์ ไชยานุศักดิ์ · 0:30 · 52 words] Step one: catch. First, a mutex is a lock. Only one thread can hold it. LD_PRELOAD tells Linux to load our library first. So our function runs before the real lock. It writes down, "waiting." It calls the real lock. Then it writes down, "got it." We catch lock, trylock, and unlock.</aside>
 </section>
 
 <!-- 07 STEP 2 — RECORD -->
@@ -639,14 +639,14 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
             <div class="panel tbl reveal" style="--d:2">
                 <h3 class="green">holds[]</h3><p class="cap">Who holds each lock?</p>
                 <table><tr><th>LOCK</th><th>HELD BY</th></tr>
-                    <tr><td>A</td><td class="green">Thread 1</td></tr>
-                    <tr><td>B</td><td class="green">Thread 2</td></tr></table>
+                    <tr><td>Alice</td><td class="green">Thread 1</td></tr>
+                    <tr><td>Bob</td><td class="green">Thread 2</td></tr></table>
             </div>
             <div class="panel tbl reveal" style="--d:3">
                 <h3 class="red">waits[]</h3><p class="cap">Who waits for which lock?</p>
                 <table><tr><th>THREAD</th><th>WAITS FOR</th></tr>
-                    <tr><td>Thread 1</td><td class="red">B</td></tr>
-                    <tr><td>Thread 2</td><td class="red">A</td></tr></table>
+                    <tr><td>Thread 1</td><td class="red">Bob</td></tr>
+                    <tr><td>Thread 2</td><td class="red">Alice</td></tr></table>
             </div>
         </div>
         <div class="why reveal" style="--d:5">
@@ -660,7 +660,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
     </div>
     <div class="foot"><span class="spk spk-b" data-spk="B">Speaker B · นายศุภวิชญ์ ไชยานุศักดิ์ · 6730300591</span><div class="steps"><span>1 Catch</span><span class="on">2 Record</span><span>3 Check</span><span>4 Report</span></div><span class="num"><b>07</b> / 16</span></div>
-    <aside class="notes">[Speaker B — นายศุภวิชญ์ ไชยานุศักดิ์ · 0:30 · 51 words] Step two is record. We keep two tables. The holds table says who holds each lock. The waits table says who waits for which lock. The tables have a fixed size. Why? We cannot use malloc here. Malloc uses locks inside. That would call our code again, in a loop.</aside>
+    <aside class="notes">[Speaker B — นายศุภวิชญ์ ไชยานุศักดิ์ · 0:30 · 53 words] Step two: record. The holds table shows who holds each lock. The waits table shows who waits for which lock. Why a fixed size? We cannot use malloc here. Malloc uses locks inside. So it would call our code again. That makes an endless loop. Next, Chayanin shows how we find the loop.</aside>
 </section>
 
 <!-- 08 STEP 3 — DETECTOR THREAD -->
@@ -683,8 +683,8 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
             <div class="panel reveal" style="--d:5"><small>NEVER STUCK</small>It never uses the program's locks.</div>
         </div>
     </div>
-    <div class="foot"><span class="spk spk-c" data-spk="C">Speaker C</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span class="on">3 Check</span><span>4 Report</span></div><span class="num"><b>08</b> / 16</span></div>
-    <aside class="notes">[Speaker C · 0:25 · 46 words] Step three is check. Our library starts its own thread. We call it the detector. It wakes up every 500 milliseconds. It copies the tables and looks for a loop. It never uses the program's locks. So it still works when the program is stuck.</aside>
+    <div class="foot"><span class="spk spk-c" data-spk="C">Speaker C · นายชญานิน เอี่ยมสกุล · 6730300094</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span class="on">3 Check</span><span>4 Report</span></div><span class="num"><b>08</b> / 16</span></div>
+    <aside class="notes">[Speaker C — นายชญานิน เอี่ยมสกุล · 0:25 · 46 words] Step three is check. Our library starts its own thread. We call it the detector. It wakes up every 500 milliseconds. It copies the tables and looks for a loop. It never uses the program's locks. So it still works when the program is stuck.</aside>
 </section>
 
 <!-- 09 STEP 3 — WAIT-FOR GRAPH -->
@@ -696,10 +696,10 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         <div class="wfg">
             <table class="ttable">
                 <tr class="reveal" style="--d:2"><th>TIME</th><th>WHAT HAPPENS</th><th>GRAPH</th></tr>
-                <tr class="reveal" style="--d:2"><td>t0</td><td>T1 locks A</td><td class="green">A held by T1</td></tr>
-                <tr class="reveal" style="--d:3"><td>t1</td><td>T2 locks B</td><td class="green">B held by T2</td></tr>
-                <tr class="reveal" style="--d:4"><td>t2</td><td>T1 wants B → waits</td><td class="red">T1 → T2</td></tr>
-                <tr class="reveal" style="--d:5"><td>t3</td><td>T2 wants A → waits</td><td class="red">T2 → T1</td></tr>
+                <tr class="reveal" style="--d:2"><td>t0</td><td>T1 locks Alice</td><td class="green">Alice held by T1</td></tr>
+                <tr class="reveal" style="--d:3"><td>t1</td><td>T2 locks Bob</td><td class="green">Bob held by T2</td></tr>
+                <tr class="reveal" style="--d:4"><td>t2</td><td>T1 wants Bob → waits</td><td class="red">T1 → T2</td></tr>
+                <tr class="reveal" style="--d:5"><td>t3</td><td>T2 wants Alice → waits</td><td class="red">T2 → T1</td></tr>
                 <tr class="found reveal" style="--d:7"><td>≤ 500 ms</td><td colspan="2">detector finds the loop → report</td></tr>
             </table>
             <div class="graph reveal" style="--d:6">
@@ -711,8 +711,8 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
                     </defs>
                     <path d="M 220 190 C 300 70, 460 70, 540 190" fill="none" stroke="#ff5c5c" stroke-width="7" marker-end="url(#ah)"/>
                     <path d="M 540 290 C 460 410, 300 410, 220 290" fill="none" stroke="#ff5c5c" stroke-width="7" marker-end="url(#ah)"/>
-                    <text x="380" y="72" text-anchor="middle" fill="#ff5c5c" font-family="JetBrains Mono" font-size="26" font-weight="700">waits for B</text>
-                    <text x="380" y="430" text-anchor="middle" fill="#ff5c5c" font-family="JetBrains Mono" font-size="26" font-weight="700">waits for A</text>
+                    <text x="380" y="72" text-anchor="middle" fill="#ff5c5c" font-family="JetBrains Mono" font-size="26" font-weight="700">waits for Bob</text>
+                    <text x="380" y="430" text-anchor="middle" fill="#ff5c5c" font-family="JetBrains Mono" font-size="26" font-weight="700">waits for Alice</text>
                     <circle cx="160" cy="240" r="92" fill="#161a20" stroke="#ece8df" stroke-width="4"/>
                     <circle cx="600" cy="240" r="92" fill="#161a20" stroke="#ece8df" stroke-width="4"/>
                     <text x="160" y="254" text-anchor="middle" fill="#ece8df" font-family="Bricolage Grotesque" font-size="50" font-weight="800">T1</text>
@@ -723,8 +723,8 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
         <div class="note-strip reveal" style="--d:8"><span>One lock at a time → <b>max one arrow out</b> → just follow the arrows.</span><span class="chip a">finds every loop · up to 16</span></div>
     </div>
-    <div class="foot"><span class="spk spk-c" data-spk="C">Speaker C</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span class="on">3 Check</span><span>4 Report</span></div><span class="num"><b>09</b> / 16</span></div>
-    <aside class="notes">[Speaker C · 0:55 · 99 words] We use a wait-for graph. Each circle is a thread. An arrow goes from the waiting thread. It points to the thread holding the lock. Thread 1 locks A. Thread 2 locks B. Thread 1 wants B. So we draw an arrow to Thread 2. Thread 2 wants A. So we draw an arrow back. Now the arrows make a loop. A loop means circular wait. That is a deadlock. A thread waits for only one lock at a time. So each circle has at most one arrow out. To find a loop, we just follow the arrows.</aside>
+    <div class="foot"><span class="spk spk-c" data-spk="C">Speaker C · นายชญานิน เอี่ยมสกุล · 6730300094</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span class="on">3 Check</span><span>4 Report</span></div><span class="num"><b>09</b> / 16</span></div>
+    <aside class="notes">[Speaker C — นายชญานิน เอี่ยมสกุล · 0:55 · 101 words] We use a wait-for graph. Each circle is a thread. An arrow goes from the waiting thread. It points to the thread holding the lock. Thread 1 locks Alice. Thread 2 locks Bob. Thread 1 wants Bob. So we draw an arrow to Thread 2. Thread 2 wants Alice. So we draw an arrow back. Now the arrows make a loop. This circular wait is a deadlock. A thread waits for only one lock at a time. So each circle has at most one arrow out. To find a loop, we just follow the arrows. Now ___ will explain the report.</aside>
 </section>
 
 <!-- 10 STEP 4 — REPORT -->
@@ -750,12 +750,13 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
                 <div class="reveal" style="--d:4"><b class="red">waiting</b>stuck at this line</div>
                 <div class="reveal" style="--d:5"><b class="amber">Cycle</b>the loop</div>
                 <div class="reveal" style="--d:6"><b class="cyan" style="color:var(--cyan)">Hint</b>how to fix it</div>
+                <div class="reveal" style="--d:7"><b class="muted">514 / 513</b>thread IDs from Linux</div>
             </div>
         </div>
         <div class="small-print reveal" style="--d:7"><span class="chip a">code lines: dladdr + addr2line · needs -g and PIE</span><span class="chip a">DD_DOT_OUT → picture (Graphviz)</span></div>
     </div>
     <div class="foot"><span class="spk spk-d" data-spk="D">Speaker D</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span>3 Check</span><span class="on">4 Report</span></div><span class="num"><b>10</b> / 16</span></div>
-    <aside class="notes">[Speaker D · 0:40 · 69 words] Step four is report. This is the real output. It says: deadlock detected, two threads in a loop. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint tells us how to fix it. Always lock in the same order. We can also save the loop as a picture.</aside>
+    <aside class="notes">[Speaker D · 0:40 · 71 words] Step four is report. This is real output. It says: deadlock detected, two threads in a loop. 514 and 513 are thread IDs from Linux. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint shows the fix. Always lock in the same order. Now ___ will show how we tested.</aside>
 </section>
 
 <!-- 11 HOW WE TESTED -->
@@ -781,11 +782,11 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
         <div class="method">
             <div class="panel reveal" style="--d:5"><small>PTHREAD_BARRIER, NOT SLEEP</small>The deadlock happens every time.</div>
-            <div class="panel reveal" style="--d:6"><small>MAKE REGRESS</small>Each hard-case test fails if we remove its fix.</div>
+            <div class="panel reveal" style="--d:6"><small>MAKE REGRESS</small>Each test catches its bug if we remove the fix.</div>
         </div>
     </div>
     <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E</span><span class="num"><b>11</b> / 16</span></div>
-    <aside class="notes">[Speaker E · 0:40 · 72 words] Some tests must deadlock. Bank and sample webapp have two threads. Cycle3 has three threads. Two pairs has two loops at once. One must never deadlock. Lockorder must only warn. We also test hard cases. One has seventy threads in a single loop. We use a barrier, not sleep. So the deadlock happens every time. Each hard-case test fails if we remove its fix. Now let us show you the real thing.</aside>
+    <aside class="notes">[Speaker E · 0:40 · 73 words] Some tests must deadlock. Bank and sample webapp have two threads. Cycle3 has three threads. Two pairs has two loops at once. One must never deadlock. Lockorder must only warn. We also test hard cases. One has seventy threads in a single loop. We use a barrier, not sleep. So the deadlock happens every time. Each test catches its bug if we remove the fix. Now let us show you the real thing.</aside>
 </section>
 
 <!-- =========================================================
@@ -809,7 +810,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
 STEP 1 — type: timeout 3 ./build/bank — say: This is the bank program, with no tool. It stops. There is no message at all. Exit code 124 means timeout stopped it.
 STEP 2 — type: timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank — say: Same command. We only add LD_PRELOAD. Now we get a report. Look at lines 65, 70, 89 and 94.
 STEP 3 — type: DD_DOT_OUT=cycle.dot timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank; dot -Tpng cycle.dot -o cycle.png — say: We can save the loop as a picture. Red arrows mean waiting.
-STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock — say: This version locks in the same order. It finishes with exit code 0. There is no report. So there is no false alarm.</aside>
+STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock — say: This version locks in the same order. It always locks Alice before Bob. It finishes with exit code 0. There is no report. So there is no false alarm.</aside>
 </section>
 
 <!-- =========================================================
@@ -844,7 +845,7 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
         <div class="takeaway reveal" style="--d:6">Good for finding bugs. <span class="muted">Too slow to leave on all the time.</span></div>
     </div>
     <div class="foot"><span class="spk spk-d" data-spk="D">Speaker D</span><span class="num"><b>13</b> / 16</span></div>
-    <aside class="notes">[Speaker D · 0:40 · 72 words] Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. No false alarm. Lockorder only gives a warning. We ran bank and sample webapp twenty times each. It found the deadlock every time. But the tool has a cost. One thread: lock plus unlock is about 31 times slower. Use it to find bugs. Do not leave it on.</aside>
+    <aside class="notes">[Speaker D · 0:40 · 72 words] Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. No false alarm. Lockorder only gives a warning. In twenty runs, it found the deadlock every time. But the tool has a cost. Each lock and unlock costs about 70 nanoseconds more. That is 31 times slower. Use it for testing only. Now ___ will talk about the limits.</aside>
 </section>
 
 <!-- 14 LIMITS & EARLY WARNING -->
@@ -854,13 +855,13 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
         <div class="kicker reveal">Limits &amp; early warning</div>
         <h2 class="reveal" style="--d:1">What it can and cannot do</h2>
         <div class="limits">
-            <div class="panel reveal" style="--d:2"><span class="tag red">LIMIT</span><h3>Normal mutex only</h3><p>No condition variables, rwlock or semaphore.</p></div>
+            <div class="panel reveal" style="--d:2"><span class="tag red">LIMIT</span><h3>Linux, normal mutex</h3><p>Linux programs only. No condition variables, rwlock or semaphore.</p></div>
             <div class="panel reveal" style="--d:3"><span class="tag red">LIMIT</span><h3>Finds it after</h3><p>A deadlock is found after it happens. It does not stop it.</p></div>
             <div class="panel next reveal" style="--d:4"><span class="tag green">ALSO</span><h3>Warns early</h3><p>Two locks taken in opposite orders → warning before a deadlock.</p></div>
         </div>
     </div>
     <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E</span><span class="num"><b>14</b> / 16</span></div>
-    <aside class="notes">[Speaker E · 0:15 · 27 words] Our tool has limits. It only sees normal mutex locks. It finds a deadlock after it happens. But it also warns early about opposite lock orders.</aside>
+    <aside class="notes">[Speaker E · 0:15 · 28 words] Now, the limits. It works only on Linux, with normal mutex locks. It finds a deadlock after it happens. But it also warns early about opposite lock orders.</aside>
 </section>
 
 <!-- 15 SUMMARY -->
@@ -893,11 +894,11 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
         <p class="sub reveal" style="--d:2">03603332 Operating Systems · Group Project</p>
     </div>
     <div class="team">
-        <div class="reveal" style="--d:3"><b>Supawit Chaiyanusak</b><span>6730300591</span></div>
-        <div class="reveal" style="--d:4"><b>Chayanin Iamsakul</b><span>6730300094</span></div>
-        <div class="reveal" style="--d:5"><b>Pattanadech Mahimuang</b><span>6730300850</span></div>
-        <div class="reveal" style="--d:6"><b>Thatthorn Jiamton</b><span>6730300779</span></div>
-        <div class="reveal" style="--d:7"><b>Phutawan Supkerd</b><span>6730300884</span></div>
+        <div class="reveal" style="--d:3"><b>นายศุภวิชญ์ ไชยานุศักดิ์</b><span>6730300591</span></div>
+        <div class="reveal" style="--d:4"><b>นายชญานิน เอี่ยมสกุล</b><span>6730300094</span></div>
+        <div class="reveal" style="--d:5"><b>พัฒนเดช มะหิเมือง</b><span>6730300850</span></div>
+        <div class="reveal" style="--d:6"><b>นายธรรศธรณ์ เจียมตน</b><span>6730300779</span></div>
+        <div class="reveal" style="--d:7"><b>นายภูตะวัน ทรัพย์เกิด</b><span>6730300884</span></div>
     </div>
     <div class="foot"><span class="spk spk-all" data-spk="★">Everyone</span><span class="num"><b>16</b> / 16</span></div>
     <aside class="notes">[Everyone] Thank you. Any questions?</aside>

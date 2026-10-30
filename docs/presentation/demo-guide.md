@@ -108,7 +108,7 @@ timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock; echo "exit=$
 **จะเห็น:** รันราว 2 วินาที → `PASS: ...` → `exit=0` ไม่มี `[DEADLOCK DETECTED]`
 
 **พูด:**
-> This version locks in the same order. It finishes with exit code 0. There is no report. So there is no false alarm.
+> This version locks in the same order. It always locks Alice before Bob. It finishes with exit code 0. There is no report. So there is no false alarm.
 
 จบแล้วกลับไปสไลด์ 13 ให้ Speaker D พูดผลลัพธ์ต่อ
 
