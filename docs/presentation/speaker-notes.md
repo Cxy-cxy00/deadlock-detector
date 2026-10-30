@@ -1,6 +1,6 @@
 # Speaker Notes — Deadlock Detector
 
-Total 8:01 (6:11 presenting + 1:50 demo). Pace: about 110 words per minute.
+Total 8:04 (6:14 presenting + 1:50 demo). Pace: about 110 words per minute.
 Speakers are labelled **A–E**. In the slides, the label is in the footer. The notes are only in this file.
 
 | Speaker | Slides | Before the demo | After the demo | Presenting time |
@@ -9,7 +9,7 @@ Speakers are labelled **A–E**. In the slides, the label is in the footer. The 
 | **B** — นายศุภวิชญ์ ไชยานุศักดิ์ 6730300591 | 5–7 · big picture, LD_PRELOAD, tables | 1:20 | — | **1:20** |
 | **C** — นายชญานิน เอี่ยมสกุล 6730300094 | 8–9 · detector thread, wait-for graph | 1:08 | — | **1:08** |
 | **D** — นายธรรศธรณ์ เจียมตน 6730300779 | 10 · report, 13 · results | 0:40 | 0:40 | **1:20** |
-| **E** — นายพัฒนเดช มะหิเมือง 6730300850 | 11 · testing, 14 · limits | 0:20 | 0:15 | **0:35** |
+| **E** — นายพัฒนเดช มะหิเมือง 6730300850 | 11 · testing, 14 · limits | 0:23 | 0:15 | **0:38** |
 
 Speaker E also runs the live demo (slide 12, 1:50). The demo is not counted as presenting time.
 
@@ -49,8 +49,8 @@ We use a wait-for graph. Each circle is a thread. An arrow means, "I am waiting 
 ### Slide 10 · Speaker D (นายธรรศธรณ์ เจียมตน) · Step 4 — Report — 0:40 (71 words)
 Step four is report. This is real output. It says: deadlock detected, two threads in a loop. 514 and 513 are thread IDs from Linux. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint shows the fix. Always lock in the same order. Now ___ will show how we tested.
 
-### Slide 11 · Speaker E (นายพัฒนเดช มะหิเมือง) · How We Tested — 0:20 (39 words)
-We tested three kinds of programs. Some must deadlock, with two, three, or seventy threads. Some must never deadlock. One must only warn. We use a barrier, not sleep, so the deadlock happens every time. Let us show you.
+### Slide 11 · Speaker E (นายพัฒนเดช มะหิเมือง) · How We Tested — 0:23 (43 words)
+Our tests have three groups. First, programs that must deadlock. Second, programs that must stay quiet. No false alarm. Third, hard cases, like seventy threads in one loop. We use a barrier, not sleep. So the deadlock happens every time. Now, the demo.
 
 ---
 
