@@ -1,14 +1,14 @@
 # Speaker Notes — Deadlock Detector
 
 Total 8:10 (6:20 presenting + 1:50 demo). Pace: about 110 words per minute.
-Speakers are labelled **A–E** (names to be filled in later). In the slides, the label is in the footer, and **N** shows these notes.
+Speakers are labelled **A–E**. In the slides, the label is in the footer, and **N** shows these notes.
 
 | Speaker | Slides | Before the demo | After the demo | Presenting time |
 |---|---|---|---|---|
 | **A** — นายภูตะวัน ทรัพย์เกิด 6730300884 | 1–4 · title, problem, Coffman, goal | 1:20 | — | **1:20** |
 | **B** — นายศุภวิชญ์ ไชยานุศักดิ์ 6730300591 | 5–7 · big picture, LD_PRELOAD, tables | 1:20 | — | **1:20** |
 | **C** — นายชญานิน เอี่ยมสกุล 6730300094 | 8–9 · detector thread, wait-for graph | 1:20 | — | **1:20** |
-| **D** | 10 · report, 13 · results | 0:40 | 0:40 | **1:20** |
+| **D** — นายธรรศธรณ์ เจียมตน 6730300779 | 10 · report, 13 · results | 0:40 | 0:40 | **1:20** |
 | **E** — นายพัฒนเดช มะหิเมือง 6730300850 | 11 · testing, 14 · limits, 15 · summary | 0:20 | 0:40 | **1:00** |
 
 Speaker E also runs the live demo (slide 12, 1:50). The demo is not counted as presenting time.
@@ -46,7 +46,7 @@ Step three is check. Our library starts its own thread. We call it the detector.
 ### Slide 9 · Speaker C (นายชญานิน เอี่ยมสกุล) · Step 3 — Wait-for Graph — 0:55 (101 words)
 We use a wait-for graph. Each circle is a thread. An arrow goes from the waiting thread. It points to the thread holding the lock. Thread 1 locks Alice. Thread 2 locks Bob. Thread 1 wants Bob. So we draw an arrow to Thread 2. Thread 2 wants Alice. So we draw an arrow back. Now the arrows make a loop. This circular wait is a deadlock. A thread waits for only one lock at a time. So each circle has at most one arrow out. To find a loop, we just follow the arrows. Now ___ will explain the report.
 
-### Slide 10 · Speaker D · Step 4 — Report — 0:40 (71 words)
+### Slide 10 · Speaker D (นายธรรศธรณ์ เจียมตน) · Step 4 — Report — 0:40 (71 words)
 Step four is report. This is real output. It says: deadlock detected, two threads in a loop. 514 and 513 are thread IDs from Linux. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint shows the fix. Always lock in the same order. Now ___ will show how we tested.
 
 ### Slide 11 · Speaker E (นายพัฒนเดช มะหิเมือง) · How We Tested — 0:20 (39 words)
@@ -72,7 +72,7 @@ Run from a path with no spaces (for example `~/dd`), or LD_PRELOAD will not load
 
 ## Part 3 — After the Demo
 
-### Slide 13 · Speaker D · Results — 0:40 (72 words)
+### Slide 13 · Speaker D (นายธรรศธรณ์ เจียมตน) · Results — 0:40 (72 words)
 Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. No false alarm. Lockorder only gives a warning. In twenty runs, it found the deadlock every time. But the tool has a cost. Each lock and unlock costs about 70 nanoseconds more. That is 31 times slower. Use it for testing only. Now ___ will talk about the limits.
 
 ### Slide 14 · Speaker E (นายพัฒนเดช มะหิเมือง) · Limits & Early Warning — 0:15 (28 words)
