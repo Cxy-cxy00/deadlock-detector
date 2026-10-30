@@ -84,7 +84,7 @@ img, video, canvas, svg { max-width: 100%; max-height: 100%; }
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
     .slide { background: var(--slide-bg) !important; }
     .reveal { opacity: 1 !important; transform: none !important; }
-    .notes-panel, .edit-hotzone, .edit-toggle, .help-hint { display: none !important; }
+    .edit-hotzone, .edit-toggle, .help-hint { display: none !important; }
     .cursor { animation: none !important; }
 }
 
@@ -440,17 +440,9 @@ p, li, td, th { font-family: var(--font-body); color: var(--text); }
 .end-wrap .sub { margin-top: 30px; font: 400 46px/1.3 var(--font-body); color: var(--muted); }
 
 /* ===========================================
-   SPEAKER NOTES — hidden on slides; press N to show the notes panel
+   SPEAKER NOTES — never shown on screen; read them in speaker-notes.md
    =========================================== */
 .notes { display: none; }
-.notes-panel {
-    position: fixed; left: 0; right: 0; bottom: 0; max-height: 42vh; overflow: auto; z-index: 2000;
-    background: rgba(10, 12, 15, 0.96); border-top: 2px solid var(--amber);
-    color: var(--text); font: 400 20px/1.5 'Atkinson Hyperlegible', 'IBM Plex Sans Thai', sans-serif; padding: 18px 28px 22px;
-    display: none;
-}
-.notes-panel.show { display: block; }
-.notes-panel h4 { font: 700 15px/1 'JetBrains Mono', monospace; color: var(--amber); letter-spacing: 0.12em; margin-bottom: 10px; }
 
 /* ===========================================
    INLINE EDITING — hover top-left corner or press E, Ctrl+S downloads the edited file
@@ -908,8 +900,7 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
 </div>
 
 <!-- Presenter helpers (outside the slide stage) -->
-<div class="notes-panel" id="notesPanel"><h4 id="notesTitle">NOTES</h4><div id="notesBody"></div></div>
-<div class="help-hint" id="helpHint">click right side / → next · click left side, right-click / ← back · N notes · E edit</div>
+<div class="help-hint" id="helpHint">click right side / → next · click left side, right-click / ← back · E edit</div>
 <nav class="deck-controls nav-btns" id="navBtns" aria-label="Slide navigation">
     <button id="prevBtn" title="Previous slide" aria-label="Previous slide">‹</button>
     <button id="nextBtn" title="Next slide" aria-label="Next slide">›</button>
@@ -920,14 +911,13 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
 <script>
 /* ===========================================
    SLIDE PRESENTATION CONTROLLER
-   Fixed 1920×1080 stage, keyboard / wheel / touch navigation, speaker notes (N)
+   Fixed 1920×1080 stage, keyboard / wheel / touch navigation
    =========================================== */
 class SlidePresentation {
     constructor() {
         this.slides = document.querySelectorAll('.slide');
         this.stage = document.getElementById('deckStage');
         this.current = 0;
-        this.notesPanel = document.getElementById('notesPanel');
         this.setupStageScale();
         this.setupKeyboardNav();
         this.setupWheelNav();
@@ -957,7 +947,6 @@ class SlidePresentation {
             else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(k)) { e.preventDefault(); this.prev(); }
             else if (k === 'Home') this.goToSlide(0);
             else if (k === 'End') this.goToSlide(this.slides.length - 1);
-            else if (k === 'n' || k === 'N') { this.notesPanel.classList.toggle('show'); this.renderNotes(); }
         });
     }
 
@@ -965,7 +954,7 @@ class SlidePresentation {
     setupWheelNav() {
         let lock = false;
         window.addEventListener('wheel', (e) => {
-            if (lock || Math.abs(e.deltaY) < 30 || this.notesPanel.contains(e.target)) return;
+            if (lock || Math.abs(e.deltaY) < 30) return;
             lock = true;
             e.deltaY > 0 ? this.next() : this.prev();
             setTimeout(() => { lock = false; }, 700);
@@ -984,11 +973,11 @@ class SlidePresentation {
     /* Mouse: click the left third of the screen = back, anywhere else = next,
        right click = back, ‹ › buttons appear when the mouse moves.
        The cursor shows which way a click will go. Clicks are ignored in edit mode
-       and on the notes panel / editor controls. */
+       and on the editor controls. */
     setupMouseNav() {
         const viewport = document.querySelector('.deck-viewport');
         const ignore = (t) => document.body.classList.contains('editing') ||
-            t.closest('.notes-panel, .edit-toggle, .edit-hotzone, .nav-btns, a, button');
+            t.closest('.edit-toggle, .edit-hotzone, .nav-btns, a, button');
         const onLeft = (x) => x < window.innerWidth * 0.3;
         viewport.addEventListener('click', (e) => {
             if (e.button !== 0 || ignore(e.target) || window.getSelection().toString()) return;
@@ -1025,15 +1014,8 @@ class SlidePresentation {
             s.classList.toggle('visible', idx === this.current);
         });
         history.replaceState(null, '', '#' + (this.current + 1));
-        this.renderNotes();
     }
 
-    renderNotes() {
-        if (!this.notesPanel.classList.contains('show')) return;
-        const n = this.slides[this.current].querySelector('.notes');
-        document.getElementById('notesTitle').textContent = `NOTES · SLIDE ${this.current + 1} / ${this.slides.length}`;
-        document.getElementById('notesBody').innerText = n ? n.textContent.trim() : '';
-    }
 }
 window.presentation = new SlidePresentation();
 
