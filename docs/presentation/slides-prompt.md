@@ -193,7 +193,8 @@ The text below says what each slide must cover. Write the final wording with the
     This slide is also the backup if the live demo fails. 0:40
 11. How We Tested — test programs: bank, sample_webapp, cycle3 (3-thread loop), two_pairs
     (2 loops at once), no_deadlock (must give no report). Edge cases: robust, errcheck,
-    longcycle (70 threads), condvar. We use pthread_barrier, not sleep, so the deadlock
+    longcycle (70 threads), condvar, lockorder (opposite order, no deadlock → must only warn).
+    We use pthread_barrier, not sleep, so the deadlock
     happens every time. make regress: every edge-case test fails if we remove its fix.
     End with: "Now let us show you the real thing." 0:40
 
@@ -207,8 +208,8 @@ The text below says what each slide must cover. Write the final wording with the
     Note in the notes: if time runs short, skip step 3. 1:50
 
 --- PART C: AFTER THE DEMO (results + summary) ---
-13. Results — test table from README (bank, no_deadlock, sample_webapp, cycle3, two_pairs:
-    without vs with LD_PRELOAD). It found the deadlock in 20 of 20 runs for bank and
+13. Results — test table from README (bank, no_deadlock, sample_webapp, cycle3, two_pairs,
+    lockorder: without vs with LD_PRELOAD; lockorder exits 0 with one order warning). It found the deadlock in 20 of 20 runs for bank and
     sample_webapp. Cost per lock + unlock: 1 thread 2.3 → 72.1 ns (×31.3);
     4 threads, 1 shared lock 39.9 → 313.5 ns (×7.9).
     Takeaway: good for finding bugs. Too slow to leave on all the time. 0:40
@@ -219,7 +220,7 @@ The text below says what each slide must cover. Write the final wording with the
     (1) a deadlock is a loop in the wait-for graph,
     (2) our tool finds it with no code change and shows the exact lines,
     (3) the fix is prevention: lock in the same order (demo step 4).
-    Also link to class: detection (this tool), prevention (lock order),
+    Also link to class: detection (this tool), prevention (lock order + our early warning),
     avoidance (our Banker's Algorithm simulator, docs/banker.html).
     End with one strong closing line. 0:25
 16. Thank You / Q&A — team names again.

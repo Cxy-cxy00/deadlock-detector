@@ -9,7 +9,7 @@
      JetBrains Mono (code / terminal) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;700&family=IBM+Plex+Sans+Thai:wght@500;700&display=swap" rel="stylesheet">
 
 <style>
 /* ===========================================
@@ -128,8 +128,18 @@ img, video, canvas, svg { max-width: 100%; max-height: 100%; }
 .foot .num b { color: var(--text); font-weight: 700; }
 
 /* Speaker label in the footer — one colour per speaker (A–E) */
-.foot .spk { padding: 8px 18px; border-radius: 999px; border: 2px solid currentColor; font: 700 20px/1 var(--font-mono); letter-spacing: 0.06em; }
-.spk-a { color: #ffb547; } .spk-b { color: #7cc8ff; } .spk-c { color: #3ddc97; } .spk-d { color: #ff8fb1; } .spk-e { color: #c3a6ff; } .spk-all { color: #ece8df; }
+.foot .spk {
+    display: inline-flex; align-items: center; gap: 14px; padding: 10px 24px 10px 12px; border-radius: 999px;
+    background: var(--spk); color: #0e1013; font: 700 27px/1 'IBM Plex Sans Thai', var(--font-body), sans-serif;
+    box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.04), 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+/* ตัวอักษรผู้พูดในวงกลม — มองจากหลังห้องก็รู้ว่าใครพูด */
+.foot .spk::before {
+    content: attr(data-spk); display: inline-flex; align-items: center; justify-content: center;
+    width: 40px; height: 40px; border-radius: 50%; background: #0e1013; color: var(--spk);
+    font: 800 24px/1 var(--font-mono);
+}
+.spk-a { --spk: #ffb547; } .spk-b { --spk: #7cc8ff; } .spk-c { --spk: #3ddc97; } .spk-d { --spk: #ff8fb1; } .spk-e { --spk: #c3a6ff; } .spk-all { --spk: #ece8df; }
 
 /* 4-step progress bar (slides 6–10) */
 .steps { display: flex; gap: 10px; margin-left: 16px; }
@@ -211,7 +221,7 @@ p, li, td, th { font-family: var(--font-body); color: var(--text); }
 .title-wrap .sub { margin-top: 34px; font: 400 44px/1.25 var(--font-body); color: var(--muted); }
 .title-wrap .term { display: inline-block; margin-top: 46px; font-size: 30px; padding: 22px 34px; }
 .team {
-    position: absolute; left: 120px; right: 120px; bottom: 112px; z-index: 2;
+    position: absolute; left: 120px; right: 120px; bottom: 140px; z-index: 2;
     display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px;
 }
 .team div { border-top: 2px solid var(--line); padding-top: 18px; }
@@ -436,7 +446,7 @@ p, li, td, th { font-family: var(--font-body); color: var(--text); }
 .notes-panel {
     position: fixed; left: 0; right: 0; bottom: 0; max-height: 42vh; overflow: auto; z-index: 2000;
     background: rgba(10, 12, 15, 0.96); border-top: 2px solid var(--amber);
-    color: var(--text); font: 400 20px/1.5 'Atkinson Hyperlegible', sans-serif; padding: 18px 28px 22px;
+    color: var(--text); font: 400 20px/1.5 'Atkinson Hyperlegible', 'IBM Plex Sans Thai', sans-serif; padding: 18px 28px 22px;
     display: none;
 }
 .notes-panel.show { display: block; }
@@ -498,7 +508,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         <div class="reveal" style="--d:7"><b>Thatthorn Jiamton</b><span>6730300779</span></div>
         <div class="reveal" style="--d:8"><b>Phutawan Supkerd</b><span>6730300884</span></div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-a">Speaker A</span><span class="num"><b>01</b> / 16</span></div>
+    <div class="foot"><span class="spk spk-a" data-spk="A">Speaker A</span><span class="num"><b>01</b> / 16</span></div>
     <aside class="notes">[Speaker A · 0:10 · 15 words] Hello everyone. Our project is the Deadlock Detector. It finds deadlocks without changing the code.</aside>
 </section>
 
@@ -522,7 +532,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
         <div class="punch reveal" style="--d:8">No crash. No error. 0% CPU. <span>It just stops.</span></div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-a">Speaker A</span><span class="num"><b>02</b> / 16</span></div>
+    <div class="foot"><span class="spk spk-a" data-spk="A">Speaker A</span><span class="num"><b>02</b> / 16</span></div>
     <aside class="notes">[Speaker A · 0:30 · 55 words] Look at this bank program. Two threads move money. Thread 1 moves money from Alice to Bob. Thread 2 moves money from Bob to Alice. Thread 1 locks Alice first. Thread 2 locks Bob first. Now each one waits for the other. Nobody lets go. The program does not crash. It shows no error. It just stops.</aside>
 </section>
 
@@ -540,7 +550,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
         <div class="rule reveal" style="--d:7">All 4 true <span class="red">→ deadlock.</span> Break one <span class="green">→ no deadlock.</span></div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-a">Speaker A</span><span class="num"><b>03</b> / 16</span></div>
+    <div class="foot"><span class="spk spk-a" data-spk="A">Speaker A</span><span class="num"><b>03</b> / 16</span></div>
     <aside class="notes">[Speaker A · 0:25 · 45 words] A deadlock needs four conditions. First, mutual exclusion: one thread per lock. Second, hold and wait: each holds one, wants another. Third, no preemption: nobody can take a lock away. Fourth, circular wait: they wait in a loop. Remove one, and there is no deadlock.</aside>
 </section>
 
@@ -558,7 +568,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         <div class="nos reveal" style="--d:5"><span class="chip a">No code change</span><span class="chip a">No rebuild</span></div>
         <div class="term reveal" style="--d:6"><span class="ps">$</span> <span class="hl">LD_PRELOAD=./build/libdetect.so</span> ./your_program</div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-a">Speaker A</span><span class="num"><b>04</b> / 16</span></div>
+    <div class="foot"><span class="spk spk-a" data-spk="A">Speaker A</span><span class="num"><b>04</b> / 16</span></div>
     <aside class="notes">[Speaker A · 0:15 · 25 words] Our goal is simple. Find the deadlock. Show the threads, the locks, and the code lines. Do not change the code. Do not rebuild it.</aside>
 </section>
 
@@ -578,8 +588,8 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
             <div class="panel fbox reveal" style="--d:5"><span class="n">STEP 4</span><h3>Report</h3><p>threads, locks, code lines</p><span class="file">report.c</span></div>
         </div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-b">Speaker B</span><span class="num"><b>05</b> / 16</span></div>
-    <aside class="notes">[Speaker B · 0:20 · 37 words] Here is the big picture. Our tool has four steps. First, catch every lock call. Second, record who holds and who waits. Third, check for a loop. Fourth, report it. Each step is one source file.</aside>
+    <div class="foot"><span class="spk spk-b" data-spk="B">Speaker B · นายศุภวิชญ์ ไชยานุศักดิ์ · 6730300591</span><span class="num"><b>05</b> / 16</span></div>
+    <aside class="notes">[Speaker B — นายศุภวิชญ์ ไชยานุศักดิ์ · 0:20 · 37 words] Here is the big picture. Our tool has four steps. First, catch every lock call. Second, record who holds and who waits. Third, check for a loop. Fourth, report it. Each step is one source file.</aside>
 </section>
 
 <!-- 06 STEP 1 — CATCH (LD_PRELOAD) -->
@@ -615,8 +625,8 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
             </div>
         </div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-b">Speaker B</span><div class="steps"><span class="on">1 Catch</span><span>2 Record</span><span>3 Check</span><span>4 Report</span></div><span class="num"><b>06</b> / 16</span></div>
-    <aside class="notes">[Speaker B · 0:30 · 55 words] Step one is catch. A mutex is a lock. Only one thread can hold it. LD_PRELOAD tells Linux to load our library first. So our lock function runs before the real one. It notes waiting. Then it calls the real lock. Then it notes got it. We catch three functions: lock, trylock and unlock.</aside>
+    <div class="foot"><span class="spk spk-b" data-spk="B">Speaker B · นายศุภวิชญ์ ไชยานุศักดิ์ · 6730300591</span><div class="steps"><span class="on">1 Catch</span><span>2 Record</span><span>3 Check</span><span>4 Report</span></div><span class="num"><b>06</b> / 16</span></div>
+    <aside class="notes">[Speaker B — นายศุภวิชญ์ ไชยานุศักดิ์ · 0:30 · 55 words] Step one is catch. A mutex is a lock. Only one thread can hold it. LD_PRELOAD tells Linux to load our library first. So our lock function runs before the real one. It notes waiting. Then it calls the real lock. Then it notes got it. We catch three functions: lock, trylock and unlock.</aside>
 </section>
 
 <!-- 07 STEP 2 — RECORD -->
@@ -649,8 +659,8 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
             <span class="pill stop">in_dd flag stops the loop</span>
         </div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-b">Speaker B</span><div class="steps"><span>1 Catch</span><span class="on">2 Record</span><span>3 Check</span><span>4 Report</span></div><span class="num"><b>07</b> / 16</span></div>
-    <aside class="notes">[Speaker B · 0:30 · 51 words] Step two is record. We keep two tables. The holds table says who holds each lock. The waits table says who waits for which lock. The tables have a fixed size. Why? We cannot use malloc here. Malloc uses locks inside. That would call our code again, in a loop.</aside>
+    <div class="foot"><span class="spk spk-b" data-spk="B">Speaker B · นายศุภวิชญ์ ไชยานุศักดิ์ · 6730300591</span><div class="steps"><span>1 Catch</span><span class="on">2 Record</span><span>3 Check</span><span>4 Report</span></div><span class="num"><b>07</b> / 16</span></div>
+    <aside class="notes">[Speaker B — นายศุภวิชญ์ ไชยานุศักดิ์ · 0:30 · 51 words] Step two is record. We keep two tables. The holds table says who holds each lock. The waits table says who waits for which lock. The tables have a fixed size. Why? We cannot use malloc here. Malloc uses locks inside. That would call our code again, in a loop.</aside>
 </section>
 
 <!-- 08 STEP 3 — DETECTOR THREAD -->
@@ -673,7 +683,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
             <div class="panel reveal" style="--d:5"><small>NEVER STUCK</small>It never uses the program's locks.</div>
         </div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-c">Speaker C</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span class="on">3 Check</span><span>4 Report</span></div><span class="num"><b>08</b> / 16</span></div>
+    <div class="foot"><span class="spk spk-c" data-spk="C">Speaker C</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span class="on">3 Check</span><span>4 Report</span></div><span class="num"><b>08</b> / 16</span></div>
     <aside class="notes">[Speaker C · 0:25 · 46 words] Step three is check. Our library starts its own thread. We call it the detector. It wakes up every 500 milliseconds. It copies the tables and looks for a loop. It never uses the program's locks. So it still works when the program is stuck.</aside>
 </section>
 
@@ -713,7 +723,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
         <div class="note-strip reveal" style="--d:8"><span>One lock at a time → <b>max one arrow out</b> → just follow the arrows.</span><span class="chip a">finds every loop · up to 16</span></div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-c">Speaker C</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span class="on">3 Check</span><span>4 Report</span></div><span class="num"><b>09</b> / 16</span></div>
+    <div class="foot"><span class="spk spk-c" data-spk="C">Speaker C</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span class="on">3 Check</span><span>4 Report</span></div><span class="num"><b>09</b> / 16</span></div>
     <aside class="notes">[Speaker C · 0:55 · 99 words] We use a wait-for graph. Each circle is a thread. An arrow goes from the waiting thread. It points to the thread holding the lock. Thread 1 locks A. Thread 2 locks B. Thread 1 wants B. So we draw an arrow to Thread 2. Thread 2 wants A. So we draw an arrow back. Now the arrows make a loop. A loop means circular wait. That is a deadlock. A thread waits for only one lock at a time. So each circle has at most one arrow out. To find a loop, we just follow the arrows.</aside>
 </section>
 
@@ -744,7 +754,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
         <div class="small-print reveal" style="--d:7"><span class="chip a">code lines: dladdr + addr2line · needs -g and PIE</span><span class="chip a">DD_DOT_OUT → picture (Graphviz)</span></div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-d">Speaker D</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span>3 Check</span><span class="on">4 Report</span></div><span class="num"><b>10</b> / 16</span></div>
+    <div class="foot"><span class="spk spk-d" data-spk="D">Speaker D</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span>3 Check</span><span class="on">4 Report</span></div><span class="num"><b>10</b> / 16</span></div>
     <aside class="notes">[Speaker D · 0:40 · 69 words] Step four is report. This is the real output. It says: deadlock detected, two threads in a loop. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint tells us how to fix it. Always lock in the same order. We can also save the loop as a picture.</aside>
 </section>
 
@@ -774,8 +784,8 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
             <div class="panel reveal" style="--d:6"><small>MAKE REGRESS</small>Each hard-case test fails if we remove its fix.</div>
         </div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-e">Speaker E</span><span class="num"><b>11</b> / 16</span></div>
-    <aside class="notes">[Speaker E · 0:40 · 70 words] We wrote test programs. Some must deadlock. Bank and sample webapp have two threads. Cycle3 has three threads. Two pairs has two loops at once. One must never deadlock. We also test hard cases. One has seventy threads in a single loop. We use a barrier, not sleep. So the deadlock happens every time. Each hard-case test fails if we remove its fix. Now let us show you the real thing.</aside>
+    <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E</span><span class="num"><b>11</b> / 16</span></div>
+    <aside class="notes">[Speaker E · 0:40 · 72 words] Some tests must deadlock. Bank and sample webapp have two threads. Cycle3 has three threads. Two pairs has two loops at once. One must never deadlock. Lockorder must only warn. We also test hard cases. One has seventy threads in a single loop. We use a barrier, not sleep. So the deadlock happens every time. Each hard-case test fails if we remove its fix. Now let us show you the real thing.</aside>
 </section>
 
 <!-- =========================================================
@@ -794,7 +804,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
             <div class="reveal" style="--d:5"><b>4</b><p>same lock order → <span class="green">finishes, no report</span></p><code>no_deadlock → exit 0</code></div>
         </div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-e">Speaker E</span><span class="num"><b>12</b> / 16</span></div>
+    <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E</span><span class="num"><b>12</b> / 16</span></div>
     <aside class="notes">[Speaker E · 1:50 · demo] If time is short, skip step 3.
 STEP 1 — type: timeout 3 ./build/bank — say: This is the bank program, with no tool. It stops. There is no message at all. Exit code 124 means timeout stopped it.
 STEP 2 — type: timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank — say: Same command. We only add LD_PRELOAD. Now we get a report. Look at lines 65, 70, 89 and 94.
@@ -833,8 +843,8 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
         </div>
         <div class="takeaway reveal" style="--d:6">Good for finding bugs. <span class="muted">Too slow to leave on all the time.</span></div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-d">Speaker D</span><span class="num"><b>13</b> / 16</span></div>
-    <aside class="notes">[Speaker D · 0:40 · 73 words] Here are the results. Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. That means no false alarm. We ran bank and sample webapp twenty times each. It found the deadlock every time. But the tool has a cost. One thread: lock plus unlock is about 31 times slower. Use it to find bugs. Do not leave it on.</aside>
+    <div class="foot"><span class="spk spk-d" data-spk="D">Speaker D</span><span class="num"><b>13</b> / 16</span></div>
+    <aside class="notes">[Speaker D · 0:40 · 72 words] Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. No false alarm. Lockorder only gives a warning. We ran bank and sample webapp twenty times each. It found the deadlock every time. But the tool has a cost. One thread: lock plus unlock is about 31 times slower. Use it to find bugs. Do not leave it on.</aside>
 </section>
 
 <!-- 14 LIMITS & EARLY WARNING -->
@@ -849,7 +859,7 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
             <div class="panel next reveal" style="--d:4"><span class="tag green">ALSO</span><h3>Warns early</h3><p>Two locks taken in opposite orders → warning before a deadlock.</p></div>
         </div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-e">Speaker E</span><span class="num"><b>14</b> / 16</span></div>
+    <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E</span><span class="num"><b>14</b> / 16</span></div>
     <aside class="notes">[Speaker E · 0:15 · 27 words] Our tool has limits. It only sees normal mutex locks. It finds a deadlock after it happens. But it also warns early about opposite lock orders.</aside>
 </section>
 
@@ -870,8 +880,8 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
             <div class="reveal" style="--d:7"><b style="color:var(--cyan)">AVOIDANCE</b><span>our Banker's simulator · docs/banker.html</span></div>
         </div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-e">Speaker E</span><span>try it: docs/playground.html</span><span class="num"><b>15</b> / 16</span></div>
-    <aside class="notes">[Speaker E · 0:25 · 44 words] To sum up. A deadlock is a loop in the wait-for graph. Our tool finds it without changing the code. It shows the exact lines. The fix is simple: lock in the same order. Detect, prevent, avoid — we used all three ideas from class.</aside>
+    <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E</span><span>try it: docs/playground.html</span><span class="num"><b>15</b> / 16</span></div>
+    <aside class="notes">[Speaker E · 0:25 · 46 words] A deadlock is a loop in the wait-for graph. Our tool finds it with no code change. It shows the exact lines. The fix: lock in the same order. Our early warning helps you do this. Detect, prevent, avoid — we used all three ideas from class.</aside>
 </section>
 
 <!-- 16 THANK YOU / Q&A -->
@@ -889,7 +899,7 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
         <div class="reveal" style="--d:6"><b>Thatthorn Jiamton</b><span>6730300779</span></div>
         <div class="reveal" style="--d:7"><b>Phutawan Supkerd</b><span>6730300884</span></div>
     </div>
-    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-all">Everyone</span><span class="num"><b>16</b> / 16</span></div>
+    <div class="foot"><span class="spk spk-all" data-spk="★">Everyone</span><span class="num"><b>16</b> / 16</span></div>
     <aside class="notes">[Everyone] Thank you. Any questions?</aside>
 </section>
 
@@ -898,7 +908,7 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
 
 <!-- Presenter helpers (outside the slide stage) -->
 <div class="notes-panel" id="notesPanel"><h4 id="notesTitle">NOTES</h4><div id="notesBody"></div></div>
-<div class="help-hint" id="helpHint">click / → next · right-click / ← back · N notes · E edit</div>
+<div class="help-hint" id="helpHint">click right side / → next · click left side, right-click / ← back · N notes · E edit</div>
 <nav class="deck-controls nav-btns" id="navBtns" aria-label="Slide navigation">
     <button id="prevBtn" title="Previous slide" aria-label="Previous slide">‹</button>
     <button id="nextBtn" title="Next slide" aria-label="Next slide">›</button>
@@ -970,14 +980,22 @@ class SlidePresentation {
         }, { passive: true });
     }
 
-    /* Mouse: left click = next, right click = back, ‹ › buttons appear when the mouse moves.
-       Clicks are ignored in edit mode and on the notes panel / editor controls. */
+    /* Mouse: click the left third of the screen = back, anywhere else = next,
+       right click = back, ‹ › buttons appear when the mouse moves.
+       The cursor shows which way a click will go. Clicks are ignored in edit mode
+       and on the notes panel / editor controls. */
     setupMouseNav() {
+        const viewport = document.querySelector('.deck-viewport');
         const ignore = (t) => document.body.classList.contains('editing') ||
             t.closest('.notes-panel, .edit-toggle, .edit-hotzone, .nav-btns, a, button');
-        document.querySelector('.deck-viewport').addEventListener('click', (e) => {
+        const onLeft = (x) => x < window.innerWidth * 0.3;
+        viewport.addEventListener('click', (e) => {
             if (e.button !== 0 || ignore(e.target) || window.getSelection().toString()) return;
-            this.next();
+            onLeft(e.clientX) ? this.prev() : this.next();
+        });
+        viewport.addEventListener('mousemove', (e) => {
+            viewport.style.cursor = document.body.classList.contains('editing') ? '' :
+                (onLeft(e.clientX) ? 'w-resize' : 'e-resize');
         });
         document.querySelector('.deck-viewport').addEventListener('contextmenu', (e) => {
             if (ignore(e.target)) return;
