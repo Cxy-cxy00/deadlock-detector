@@ -83,3 +83,33 @@ A deadlock is a loop in the wait-for graph. Our tool finds it with no code chang
 
 ### Slide 16 · Everyone · Thank You / Q&A
 Thank you. Any questions?
+
+---
+
+## Possible Questions (Q&A)
+
+Short answers to prepare. The suggested speaker knows that part best.
+
+**Q: Can it find a livelock?** · E
+No. In a livelock, threads keep running. Nobody waits, so there is no loop in our graph.
+
+**Q: Why only mutex? Why not semaphore?** · E
+A mutex has one owner. So we know who waits for whom. A semaphore has no owner. Anyone can release it. So we cannot draw the arrow.
+
+**Q: How do you know it is really a deadlock?** · C
+Each lock has one owner. So a loop means everyone waits forever. All four Coffman conditions are true. We do not guess from time.
+
+**Q: Did you write LD_PRELOAD?** · B
+No. LD_PRELOAD is part of Linux. We wrote the library, libdetect.so. LD_PRELOAD just loads it first.
+
+**Q: How much slower is the program?** · D
+About 70 nanoseconds more per lock and unlock. Every lock updates our tables. So use it for testing only.
+
+**Q: Can you turn it off?** · D
+Yes. Just run the program without LD_PRELOAD. Then the cost is zero. No rebuild is needed.
+
+**Q: Did you really test it?** · E
+Yes. We removed each fix, one at a time. Each time, its own test failed.
+
+**Q: Does it stop the deadlock?** · E
+No. It finds the deadlock after it happens. But it warns early about opposite lock orders.
