@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Deadlock Detector</title>
+
+<!-- Fonts: Bricolage Grotesque (headings), Atkinson Hyperlegible (body, easy to read on a projector),
+     JetBrains Mono (code / terminal) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+<style>
+/* ===========================================
+   THEME — change these variables to restyle the whole deck
+   red = waiting / deadlock, green = holding, amber = our tool
+   =========================================== */
+:root {
+    --stage-bg: #07080a;
+    --slide-bg: #0e1013;
+    --panel: #161a20;
+    --panel-2: #1c2129;
+    --line: #2a313b;
+    --text: #ece8df;
+    --muted: #9aa1ab;
+    --dim: #5d6570;
+    --amber: #ffb547;
+    --amber-soft: rgba(255, 181, 71, 0.14);
+    --red: #ff5c5c;
+    --red-soft: rgba(255, 92, 92, 0.14);
+    --green: #3ddc97;
+    --green-soft: rgba(61, 220, 151, 0.13);
+    --cyan: #7cc8ff;
+
+    --font-display: 'Bricolage Grotesque', serif;
+    --font-body: 'Atkinson Hyperlegible', serif;
+    --font-mono: 'JetBrains Mono', monospace;
+
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { color: var(--text); font-family: var(--font-body); }
+
+/* ===========================================
+   FIXED 16:9 STAGE: MANDATORY BASE STYLES (viewport-base.css)
+   =========================================== */
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: var(--stage-bg, #000); }
+.deck-viewport { position: fixed; inset: 0; overflow: hidden; background: var(--stage-bg, #000); }
+.deck-stage {
+    position: absolute; left: 0; top: 0; width: 1920px; height: 1080px;
+    overflow: hidden; transform-origin: 0 0; background: var(--slide-bg, #fff);
+}
+.slide {
+    position: absolute; inset: 0; width: 1920px; height: 1080px; overflow: hidden;
+    display: block; visibility: hidden; opacity: 0; pointer-events: none;
+    background: var(--slide-bg, #fff);
+}
+.slide.active, .slide.visible { visibility: visible; opacity: 1; pointer-events: auto; z-index: 1; }
+img, video, canvas, svg { max-width: 100%; max-height: 100%; }
+.deck-controls { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 1000; }
+@media print {
+    html, body { width: 1920px; height: auto; overflow: visible; background: #fff; }
+    .deck-viewport { position: static; overflow: visible; background: #fff; }
+    .deck-stage { position: static; width: auto; height: auto; transform: none !important; background: none; }
+    .slide {
+        position: relative; display: block !important; visibility: visible !important;
+        opacity: 1 !important; pointer-events: auto !important; width: 1920px; height: 1080px;
+        break-after: page; page-break-after: always;
+    }
+    .slide:last-child { break-after: auto; page-break-after: auto; }
+    .deck-controls { display: none !important; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.2s !important; }
+}
+
+/* ===========================================
+   PRINT / PDF — one 1920×1080 page per slide, animations in final state
+   =========================================== */
+@page { size: 1920px 1080px; margin: 0; }
+@media print {
+    * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+    .slide { background: var(--slide-bg) !important; }
+    .reveal { opacity: 1 !important; transform: none !important; }
+    .notes-panel, .edit-hotzone, .edit-toggle, .help-hint { display: none !important; }
+    .cursor { animation: none !important; }
+}
+
+/* ===========================================
+   SLIDE BACKGROUND — dot grid + soft amber glow + faint scanlines
+   =========================================== */
+.slide::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background:
+        radial-gradient(circle at 1px 1px, rgba(236, 232, 223, 0.07) 1.4px, transparent 0) 0 0 / 48px 48px,
+        radial-gradient(1100px 700px at 88% 8%, rgba(255, 181, 71, 0.07), transparent 60%),
+        radial-gradient(900px 600px at 4% 100%, rgba(124, 200, 255, 0.05), transparent 60%);
+}
+.slide::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.012) 0 2px, transparent 2px 4px);
+}
+
+/* ===========================================
+   DECK CHROME — terminal title bar (top) and footer (bottom)
+   =========================================== */
+.tbar {
+    position: absolute; top: 36px; left: 120px; right: 120px; height: 44px;
+    display: flex; align-items: center; gap: 14px; z-index: 2;
+    font: 500 22px/1 var(--font-mono); color: var(--dim);
+}
+.tbar .dots { display: flex; gap: 10px; margin-right: 10px; }
+.tbar .dots i { width: 16px; height: 16px; border-radius: 50%; display: block; background: var(--line); }
+.tbar .dots i:nth-child(1) { background: #ff5f57; }
+.tbar .dots i:nth-child(2) { background: #febc2e; }
+.tbar .dots i:nth-child(3) { background: #28c840; }
+.tbar .path b { color: var(--muted); font-weight: 500; }
+.tbar .part { margin-left: auto; color: var(--amber); letter-spacing: 0.12em; }
+
+.foot {
+    position: absolute; left: 120px; right: 120px; bottom: 40px; height: 40px; z-index: 2;
+    display: flex; align-items: center; gap: 24px;
+    font: 500 21px/1 var(--font-mono); color: var(--dim);
+}
+.foot .num { margin-left: auto; color: var(--muted); }
+.foot .num b { color: var(--text); font-weight: 700; }
+
+/* Speaker label in the footer — one colour per speaker (A–E) */
+.foot .spk { padding: 8px 18px; border-radius: 999px; border: 2px solid currentColor; font: 700 20px/1 var(--font-mono); letter-spacing: 0.06em; }
+.spk-a { color: #ffb547; } .spk-b { color: #7cc8ff; } .spk-c { color: #3ddc97; } .spk-d { color: #ff8fb1; } .spk-e { color: #c3a6ff; } .spk-all { color: #ece8df; }
+
+/* 4-step progress bar (slides 6–10) */
+.steps { display: flex; gap: 10px; margin-left: 16px; }
+.steps span {
+    padding: 8px 16px; border: 1px solid var(--line); border-radius: 999px;
+    font: 500 18px/1 var(--font-mono); color: var(--dim);
+}
+.steps span.on { color: #111; background: var(--amber); border-color: var(--amber); font-weight: 700; }
+
+/* ===========================================
+   LAYOUT + TYPE
+   =========================================== */
+.content {
+    position: absolute; top: 132px; bottom: 108px; left: 120px; right: 120px; z-index: 2;
+    display: flex; flex-direction: column;
+}
+.kicker {
+    font: 700 26px/1 var(--font-mono); color: var(--amber);
+    letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 22px;
+}
+h1, h2 { font-family: var(--font-display); color: var(--text); letter-spacing: -0.02em; }
+h2 { font-size: 84px; line-height: 1.02; font-weight: 800; margin-bottom: 30px; }
+h3 { font: 700 38px/1.15 var(--font-display); color: var(--text); }
+p, li, td, th { font-family: var(--font-body); color: var(--text); }
+.lead { font-size: 38px; line-height: 1.35; color: var(--muted); max-width: 1500px; }
+.lead b { color: var(--text); }
+.mono { font-family: var(--font-mono); }
+.red { color: var(--red); } .green { color: var(--green); } .amber { color: var(--amber); } .muted { color: var(--muted); }
+
+.row { display: flex; gap: 40px; }
+.grow { flex: 1; }
+
+/* Panels, terminals */
+.panel {
+    background: linear-gradient(180deg, var(--panel-2), var(--panel));
+    border: 1px solid var(--line); border-radius: 22px; padding: 36px 40px;
+}
+.term {
+    background: #0a0c0f; border: 1px solid var(--line); border-radius: 18px;
+    font: 500 30px/1.5 var(--font-mono); color: var(--text); padding: 30px 38px;
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.45);
+}
+.term .ps { color: var(--green); }
+.term .cmt { color: var(--dim); }
+.term .hl { color: var(--amber); }
+
+/* Chips used for "holds" / "waits" */
+.chip {
+    display: inline-flex; align-items: center; gap: 10px; padding: 8px 18px; border-radius: 999px;
+    font: 700 24px/1 var(--font-mono);
+}
+.chip.g { background: var(--green-soft); color: var(--green); }
+.chip.r { background: var(--red-soft); color: var(--red); }
+.chip.a { background: var(--amber-soft); color: var(--amber); }
+
+/* ===========================================
+   ANIMATIONS — .reveal elements fade up when the slide becomes visible.
+   Stagger with style="--d:N" (N × 110 ms delay).
+   =========================================== */
+.reveal {
+    opacity: 0; transform: translateY(26px);
+    transition: opacity 0.7s var(--ease), transform 0.7s var(--ease);
+    transition-delay: calc(var(--d, 0) * 110ms);
+}
+.slide.visible .reveal { opacity: 1; transform: none; }
+.cursor {
+    display: inline-block; width: 0.5em; height: 0.9em; margin-left: 0.12em; vertical-align: -0.06em;
+    background: var(--amber); animation: blink 1.05s steps(1) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ===========================================
+   SLIDE 1 — TITLE
+   =========================================== */
+.title-wrap { position: absolute; left: 120px; right: 120px; top: 190px; z-index: 2; }
+.title-wrap .kicker { margin-bottom: 34px; }
+.title-wrap h1 { font-size: 168px; line-height: 0.92; font-weight: 800; letter-spacing: -0.035em; }
+.title-wrap h1 .amber { display: block; }
+.title-wrap .sub { margin-top: 34px; font: 400 44px/1.25 var(--font-body); color: var(--muted); }
+.title-wrap .term { display: inline-block; margin-top: 46px; font-size: 30px; padding: 22px 34px; }
+.team {
+    position: absolute; left: 120px; right: 120px; bottom: 112px; z-index: 2;
+    display: grid; grid-template-columns: repeat(5, 1fr); gap: 18px;
+}
+.team div { border-top: 2px solid var(--line); padding-top: 18px; }
+.team b { display: block; font: 700 25px/1.25 var(--font-body); color: var(--text); }
+.team span { display: block; margin-top: 8px; font: 500 21px/1 var(--font-mono); color: var(--dim); }
+
+/* ===========================================
+   SLIDE 2 — PROBLEM: two-column lock timeline
+   =========================================== */
+.lanes { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; margin-top: 8px; }
+.lane h3 { font-size: 34px; margin-bottom: 22px; }
+.lane h3 small { display: block; margin-top: 6px; font: 500 24px/1 var(--font-mono); color: var(--dim); }
+.step {
+    display: flex; align-items: center; gap: 22px; padding: 30px 32px; margin-bottom: 18px;
+    border-radius: 16px; border: 1px solid var(--line); background: var(--panel);
+    font: 500 36px/1 var(--font-mono);
+}
+.step .t { color: var(--dim); width: 54px; }
+.step.ok { border-color: rgba(61, 220, 151, 0.4); }
+.step.wait { border-color: rgba(255, 92, 92, 0.55); background: var(--red-soft); }
+.step .mark { margin-left: auto; font: 700 24px/1 var(--font-mono); }
+.punch {
+    margin-top: auto; font: 800 64px/1.05 var(--font-display); letter-spacing: -0.02em;
+}
+.punch span { color: var(--dim); }
+
+/* ===========================================
+   SLIDE 3 — COFFMAN: four condition cards
+   =========================================== */
+.cards4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 28px; margin-top: 10px; }
+.ccard { padding: 36px 32px; min-height: 420px; display: flex; flex-direction: column; }
+.ccard .n { font: 700 72px/1 var(--font-mono); color: var(--amber); opacity: 0.9; }
+.ccard h3 { margin: 26px 0 20px; font-size: 40px; }
+.ccard p { font-size: 30px; line-height: 1.35; color: var(--muted); }
+.ccard.loop { border-color: rgba(255, 92, 92, 0.55); background: linear-gradient(180deg, rgba(255, 92, 92, 0.12), var(--panel)); }
+.ccard.loop .n { color: var(--red); }
+.rule { margin-top: auto; font: 700 40px/1.2 var(--font-display); }
+
+/* ===========================================
+   SLIDE 4 — GOAL
+   =========================================== */
+.goals { display: flex; gap: 28px; margin: 14px 0 50px; }
+.goal { flex: 1; padding: 34px 36px; }
+.goal .ic { font: 700 44px/1 var(--font-mono); color: var(--green); }
+.goal h3 { margin-top: 18px; font-size: 44px; }
+.nos { display: flex; gap: 22px; margin-bottom: 40px; }
+.nos .chip { font-size: 30px; padding: 14px 26px; }
+
+/* ===========================================
+   SLIDE 5 — BIG PICTURE: 4 boxes with arrows
+   =========================================== */
+.flow { display: flex; align-items: stretch; gap: 0; margin-top: 30px; }
+.fbox { flex: 1; padding: 40px 34px; min-height: 470px; display: flex; flex-direction: column; }
+.fbox .n { font: 700 30px/1 var(--font-mono); color: var(--amber); }
+.fbox h3 { font-size: 62px; margin: 22px 0 18px; }
+.fbox p { font-size: 32px; line-height: 1.3; color: var(--muted); }
+.fbox .file { margin-top: auto; font: 500 24px/1.4 var(--font-mono); color: var(--cyan); }
+.farrow { width: 70px; display: flex; align-items: center; justify-content: center; font: 700 44px/1 var(--font-mono); color: var(--dim); }
+
+/* ===========================================
+   SLIDE 6 — LD_PRELOAD layer diagram
+   =========================================== */
+.layers { width: 1000px; display: flex; flex-direction: column; gap: 0; }
+.layer { padding: 22px 34px; border-radius: 18px; border: 1px solid var(--line); background: var(--panel); }
+.layer h3 { font-size: 34px; }
+.layer .code { font: 500 26px/1.4 var(--font-mono); color: var(--muted); margin-top: 8px; }
+.layer.ours { border: 2px solid var(--amber); background: linear-gradient(180deg, rgba(255, 181, 71, 0.13), var(--panel)); }
+.layer.ours ol { list-style: none; margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+.layer.ours li { font: 500 27px/1.2 var(--font-mono); }
+.layer.ours li b { display: inline-block; width: 42px; color: var(--amber); }
+.layer.kernel { border-style: dashed; color: var(--dim); }
+.layer.kernel h3 { color: var(--dim); }
+.down { height: 40px; display: flex; align-items: center; padding-left: 60px; font: 700 30px/1 var(--font-mono); color: var(--dim); }
+.side { flex: 1; display: flex; flex-direction: column; gap: 30px; padding-top: 6px; }
+.side .big { font: 700 46px/1.15 var(--font-display); }
+.fnlist { display: flex; flex-direction: column; gap: 14px; }
+.fnlist div { font: 500 27px/1 var(--font-mono); color: var(--text); padding: 16px 22px; border-left: 4px solid var(--amber); background: var(--panel); border-radius: 0 12px 12px 0; }
+
+/* ===========================================
+   SLIDE 7 — RECORD: two tables
+   =========================================== */
+.tables { display: flex; gap: 36px; }
+.tbl { flex: 1; padding: 32px 36px 36px; }
+.tbl h3 { font-family: var(--font-mono); font-size: 40px; }
+.tbl .cap { font-size: 28px; color: var(--muted); margin: 10px 0 24px; }
+.tbl table { width: 100%; border-collapse: collapse; }
+.tbl th { text-align: left; font: 500 22px/1 var(--font-mono); color: var(--dim); padding: 0 0 14px; border-bottom: 1px solid var(--line); }
+.tbl td { font: 500 32px/1 var(--font-mono); padding: 20px 0; border-bottom: 1px solid var(--line); }
+.why { margin-top: 34px; display: flex; align-items: center; gap: 22px; flex-wrap: nowrap; }
+.why .pill { padding: 18px 26px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); font: 500 27px/1.2 var(--font-body); }
+.why .arr { font: 700 30px/1 var(--font-mono); color: var(--dim); }
+.why .pill.stop { border-color: var(--amber); color: var(--amber); font-family: var(--font-mono); }
+
+/* ===========================================
+   SLIDE 8 — DETECTOR: timeline lanes
+   =========================================== */
+.tl { margin-top: 10px; padding: 40px 44px; }
+.tl .lane-row { display: flex; align-items: center; gap: 30px; height: 96px; }
+.tl .lab { width: 260px; font: 700 30px/1 var(--font-mono); }
+.tl .track { position: relative; flex: 1; height: 54px; border-radius: 12px; background: #0b0d10; border: 1px solid var(--line); overflow: hidden; }
+.tl .run { position: absolute; top: 0; bottom: 0; left: 0; width: 22%; background: var(--green-soft); border-right: 2px solid var(--green); }
+.tl .stuck {
+    position: absolute; top: 0; bottom: 0; left: 22%; right: 0;
+    background: repeating-linear-gradient(135deg, rgba(255, 92, 92, 0.22) 0 14px, rgba(255, 92, 92, 0.06) 14px 28px);
+    display: flex; align-items: center; padding-left: 26px; font: 700 26px/1 var(--font-mono); color: var(--red);
+}
+.tl .tick {
+    position: absolute; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%;
+    background: var(--amber); box-shadow: 0 0 0 6px rgba(255, 181, 71, 0.15);
+}
+.tl .tick.hit { background: var(--red); box-shadow: 0 0 0 10px rgba(255, 92, 92, 0.25); width: 30px; height: 30px; margin: -15px 0 0 -15px; }
+.tl .axis { display: flex; justify-content: space-between; margin-left: 290px; font: 500 22px/1 var(--font-mono); color: var(--dim); padding-top: 14px; }
+.facts { display: flex; gap: 28px; margin-top: 36px; }
+.facts div { flex: 1; padding: 28px 32px; font: 700 34px/1.25 var(--font-body); }
+.facts div small { display: block; font: 500 24px/1 var(--font-mono); color: var(--amber); margin-bottom: 14px; letter-spacing: 0.1em; }
+
+/* ===========================================
+   SLIDE 9 — WAIT-FOR GRAPH
+   =========================================== */
+.wfg { display: flex; gap: 46px; align-items: flex-start; }
+.ttable { width: 820px; border-collapse: collapse; }
+.ttable th { text-align: left; font: 500 22px/1 var(--font-mono); color: var(--dim); padding: 0 0 14px; border-bottom: 1px solid var(--line); }
+.ttable td { font: 500 28px/1.2 var(--font-mono); padding: 18px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.ttable td:first-child { color: var(--dim); width: 150px; padding-right: 24px; white-space: nowrap; }
+.ttable tr.found td { color: var(--amber); border-bottom: none; padding-top: 22px; }
+.graph { flex: 1; padding: 20px 20px 10px; text-align: center; }
+.graph svg { width: 100%; height: 470px; }
+.graph .cap { font: 700 34px/1.2 var(--font-display); margin-top: 6px; }
+.note-strip { margin-top: 30px; display: flex; gap: 22px; align-items: center; font: 500 28px/1.3 var(--font-body); color: var(--muted); }
+.note-strip b { color: var(--text); }
+
+/* ===========================================
+   SLIDE 10 — REPORT: annotated terminal output
+   =========================================== */
+.report { display: flex; gap: 40px; }
+.report .term { width: 1080px; font-size: 27px; line-height: 1.55; padding: 30px 36px; white-space: pre; }
+.report .term .title { color: var(--red); font-weight: 700; }
+.ann { flex: 1; display: flex; flex-direction: column; gap: 18px; }
+.ann div { padding: 20px 26px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); font: 400 28px/1.3 var(--font-body); }
+.ann div b { font-family: var(--font-mono); margin-right: 10px; }
+.small-print { margin-top: 26px; display: flex; gap: 22px; }
+.small-print .chip { font-size: 22px; padding: 12px 20px; }
+
+/* ===========================================
+   SLIDE 11 — TESTING grid
+   =========================================== */
+.tests { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 28px; }
+.tcol { padding: 30px 32px; }
+.tcol h3 { font-size: 34px; margin-bottom: 20px; }
+.tcol ul { list-style: none; display: flex; flex-direction: column; gap: 14px; }
+.tcol li { font: 500 27px/1.25 var(--font-mono); }
+.tcol li small { display: block; font: 400 23px/1.2 var(--font-body); color: var(--muted); margin-top: 4px; }
+.tcol.bad { border-top: 4px solid var(--red); }
+.tcol.good { border-top: 4px solid var(--green); }
+.tcol.edge { border-top: 4px solid var(--amber); }
+.method { margin-top: 30px; display: flex; gap: 28px; }
+.method div { flex: 1; padding: 26px 30px; font: 700 31px/1.3 var(--font-body); }
+.method div small { display: block; font: 500 22px/1 var(--font-mono); color: var(--amber); margin-bottom: 12px; letter-spacing: 0.1em; }
+
+/* ===========================================
+   SLIDE 12 — LIVE DEMO
+   =========================================== */
+.demo-wrap { position: absolute; inset: 132px 120px 108px; z-index: 2; display: flex; flex-direction: column; justify-content: center; }
+.demo-wrap h1 { font-size: 210px; line-height: 0.9; font-weight: 800; letter-spacing: -0.04em; }
+.demo-wrap h1 .dot { display: inline-block; width: 46px; height: 46px; border-radius: 50%; background: var(--red); margin-right: 34px; vertical-align: 0.2em; box-shadow: 0 0 0 14px rgba(255, 92, 92, 0.18); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 26px rgba(255, 92, 92, 0.04); } }
+.demo-steps { margin-top: 70px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+.demo-steps div { padding: 26px 28px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
+.demo-steps b { font: 700 26px/1 var(--font-mono); color: var(--amber); }
+.demo-steps p { margin-top: 14px; font-size: 29px; line-height: 1.3; }
+.demo-steps code { display: block; margin-top: 12px; font: 500 21px/1.35 var(--font-mono); color: var(--muted); }
+
+/* ===========================================
+   SLIDE 13 — RESULTS
+   =========================================== */
+.results { display: flex; gap: 36px; }
+.rtable { width: 960px; border-collapse: collapse; }
+.rtable th { text-align: left; font: 500 22px/1 var(--font-mono); color: var(--dim); padding: 0 0 16px; border-bottom: 1px solid var(--line); }
+.rtable td { font: 500 27px/1.2 var(--font-mono); padding: 17px 0; border-bottom: 1px solid var(--line); }
+.rtable td:first-child { color: var(--text); font-weight: 700; }
+.rside { flex: 1; display: flex; flex-direction: column; gap: 24px; }
+.stat { padding: 26px 30px; }
+.stat .v { font: 800 76px/1 var(--font-display); color: var(--green); }
+.stat .k { margin-top: 10px; font: 400 26px/1.3 var(--font-body); color: var(--muted); }
+.cost div { display: flex; justify-content: space-between; gap: 20px; white-space: nowrap; font: 500 24px/1.7 var(--font-mono); }
+.cost .x { color: var(--red); font-weight: 700; }
+.takeaway { margin-top: 28px; font: 700 40px/1.2 var(--font-display); }
+
+/* ===========================================
+   SLIDE 14 — LIMITS
+   =========================================== */
+.limits { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 30px; margin-top: 20px; }
+.limits .panel { min-height: 420px; display: flex; flex-direction: column; }
+.limits .tag { font: 700 24px/1 var(--font-mono); letter-spacing: 0.1em; }
+.limits h3 { margin: 24px 0 18px; font-size: 46px; }
+.limits p { font-size: 30px; line-height: 1.35; color: var(--muted); }
+.limits .next { border: 2px solid var(--amber); background: linear-gradient(180deg, rgba(255, 181, 71, 0.12), var(--panel)); }
+
+/* ===========================================
+   SLIDE 15 — SUMMARY
+   =========================================== */
+.keys { display: flex; flex-direction: column; gap: 22px; margin-top: 6px; }
+.key { display: flex; align-items: center; gap: 34px; padding: 26px 36px; }
+.key .n { font: 700 54px/1 var(--font-mono); color: var(--amber); width: 70px; }
+.key p { font: 700 42px/1.2 var(--font-display); }
+.dpa { margin-top: 34px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.dpa div { padding: 24px 30px; border-radius: 16px; border: 1px solid var(--line); background: var(--panel); }
+.dpa b { display: block; font: 700 24px/1 var(--font-mono); letter-spacing: 0.1em; }
+.dpa span { display: block; margin-top: 12px; font: 400 28px/1.3 var(--font-body); color: var(--muted); }
+
+/* ===========================================
+   SLIDE 16 — THANK YOU / Q&A
+   =========================================== */
+.end-wrap { position: absolute; left: 120px; right: 120px; top: 200px; z-index: 2; }
+.end-wrap h1 { font-size: 190px; line-height: 0.92; font-weight: 800; letter-spacing: -0.04em; }
+.end-wrap .sub { margin-top: 30px; font: 400 46px/1.3 var(--font-body); color: var(--muted); }
+
+/* ===========================================
+   SPEAKER NOTES — hidden on slides; press N to show the notes panel
+   =========================================== */
+.notes { display: none; }
+.notes-panel {
+    position: fixed; left: 0; right: 0; bottom: 0; max-height: 42vh; overflow: auto; z-index: 2000;
+    background: rgba(10, 12, 15, 0.96); border-top: 2px solid var(--amber);
+    color: var(--text); font: 400 20px/1.5 'Atkinson Hyperlegible', sans-serif; padding: 18px 28px 22px;
+    display: none;
+}
+.notes-panel.show { display: block; }
+.notes-panel h4 { font: 700 15px/1 'JetBrains Mono', monospace; color: var(--amber); letter-spacing: 0.12em; margin-bottom: 10px; }
+
+/* ===========================================
+   INLINE EDITING — hover top-left corner or press E, Ctrl+S downloads the edited file
+   =========================================== */
+.edit-hotzone { position: fixed; top: 0; left: 0; width: 80px; height: 80px; z-index: 10000; cursor: pointer; }
+.edit-toggle {
+    position: fixed; top: 18px; left: 18px; z-index: 10001; width: 46px; height: 46px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--panel); color: var(--text); font-size: 22px; cursor: pointer;
+    opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+}
+.edit-toggle.show, .edit-toggle.active { opacity: 1; pointer-events: auto; }
+.edit-toggle.active { background: var(--amber); color: #111; }
+body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0.5); outline-offset: 6px; }
+/* ===========================================
+   MOUSE NAVIGATION — click = next, right-click = back, plus ‹ › buttons (bottom right)
+   =========================================== */
+.deck-controls.nav-btns {
+    left: auto; right: 22px; transform: none; display: flex; gap: 10px;
+    opacity: 0; transition: opacity 0.3s ease;
+}
+.deck-controls.nav-btns.show { opacity: 1; }
+.nav-btns button {
+    width: 52px; height: 52px; border-radius: 14px; cursor: pointer;
+    border: 1px solid #2a313b; background: rgba(22, 26, 32, 0.9); color: #ece8df;
+    font: 700 26px/1 'JetBrains Mono', monospace;
+}
+.nav-btns button:hover { background: #ffb547; color: #111; border-color: #ffb547; }
+.help-hint {
+    position: fixed; right: 18px; top: 16px; z-index: 1500; font: 500 13px/1 'JetBrains Mono', monospace;
+    color: #5d6570; opacity: 0.8;
+}
+</style>
+</head>
+<body>
+<div class="deck-viewport">
+<main class="deck-stage" id="deckStage">
+
+<!-- =========================================================
+     PART A — PRESENTATION
+     ========================================================= -->
+
+<!-- 01 TITLE -->
+<section class="slide active" data-part="PART 1 · PRESENT">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b></span><span class="part">PART 1 · PRESENT</span></div>
+    <div class="title-wrap">
+        <div class="kicker reveal">03603332 Operating Systems · Group Project · Deadlocks</div>
+        <h1 class="reveal" style="--d:1">Deadlock<span class="amber">Detector<span class="cursor"></span></span></h1>
+        <p class="sub reveal" style="--d:2">Find deadlocks without changing the code.</p>
+        <div class="term reveal" style="--d:3"><span class="ps">$</span> LD_PRELOAD=./build/libdetect.so ./your_program</div>
+    </div>
+    <div class="team">
+        <div class="reveal" style="--d:4"><b>Supawit Chaiyanusak</b><span>6730300591</span></div>
+        <div class="reveal" style="--d:5"><b>Chayanin Iamsakul</b><span>6730300094</span></div>
+        <div class="reveal" style="--d:6"><b>Pattanadech Mahimuang</b><span>6730300850</span></div>
+        <div class="reveal" style="--d:7"><b>Thatthorn Jiamton</b><span>6730300779</span></div>
+        <div class="reveal" style="--d:8"><b>Phutawan Supkerd</b><span>6730300884</span></div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-a">Speaker A</span><span class="num"><b>01</b> / 16</span></div>
+    <aside class="notes">[Speaker A · 0:10 · 15 words] Hello everyone. Our project is the Deadlock Detector. It finds deadlocks without changing the code.</aside>
+</section>
+
+<!-- 02 THE PROBLEM -->
+<section class="slide" data-part="PART 1 · PRESENT">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b>/tests/bank.c</span><span class="part">PART 1 · PRESENT</span></div>
+    <div class="content">
+        <div class="kicker reveal">The problem</div>
+        <h2 class="reveal" style="--d:1">Two threads. Two locks. Stuck forever.</h2>
+        <div class="lanes">
+            <div class="lane">
+                <h3 class="reveal" style="--d:2">Thread 1<small>moves money Alice → Bob</small></h3>
+                <div class="step ok reveal" style="--d:3"><span class="t">t0</span>lock(Alice)<span class="mark green">✓ got it</span></div>
+                <div class="step wait reveal" style="--d:5"><span class="t">t2</span>lock(Bob)<span class="mark red">⏳ waits</span></div>
+            </div>
+            <div class="lane">
+                <h3 class="reveal" style="--d:2">Thread 2<small>moves money Bob → Alice</small></h3>
+                <div class="step ok reveal" style="--d:4"><span class="t">t1</span>lock(Bob)<span class="mark green">✓ got it</span></div>
+                <div class="step wait reveal" style="--d:6"><span class="t">t3</span>lock(Alice)<span class="mark red">⏳ waits</span></div>
+            </div>
+        </div>
+        <div class="punch reveal" style="--d:8">No crash. No error. 0% CPU. <span>It just stops.</span></div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-a">Speaker A</span><span class="num"><b>02</b> / 16</span></div>
+    <aside class="notes">[Speaker A · 0:30 · 55 words] Look at this bank program. Two threads move money. Thread 1 moves money from Alice to Bob. Thread 2 moves money from Bob to Alice. Thread 1 locks Alice first. Thread 2 locks Bob first. Now each one waits for the other. Nobody lets go. The program does not crash. It shows no error. It just stops.</aside>
+</section>
+
+<!-- 03 COFFMAN CONDITIONS -->
+<section class="slide" data-part="PART 1 · PRESENT">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b></span><span class="part">PART 1 · PRESENT</span></div>
+    <div class="content">
+        <div class="kicker reveal">Deadlock basics</div>
+        <h2 class="reveal" style="--d:1">4 Coffman conditions</h2>
+        <div class="cards4">
+            <div class="panel ccard reveal" style="--d:2"><span class="n">01</span><h3>Mutual exclusion</h3><p>Only one thread can hold a lock.</p></div>
+            <div class="panel ccard reveal" style="--d:3"><span class="n">02</span><h3>Hold and wait</h3><p>Each thread holds one account. It wants the other.</p></div>
+            <div class="panel ccard reveal" style="--d:4"><span class="n">03</span><h3>No preemption</h3><p>Nobody can take a lock away.</p></div>
+            <div class="panel ccard loop reveal" style="--d:5"><span class="n">04</span><h3>Circular wait</h3><p>Thread 1 waits for Thread 2. Thread 2 waits for Thread 1.</p></div>
+        </div>
+        <div class="rule reveal" style="--d:7">All 4 true <span class="red">→ deadlock.</span> Break one <span class="green">→ no deadlock.</span></div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-a">Speaker A</span><span class="num"><b>03</b> / 16</span></div>
+    <aside class="notes">[Speaker A · 0:25 · 45 words] A deadlock needs four conditions. First, mutual exclusion: one thread per lock. Second, hold and wait: each holds one, wants another. Third, no preemption: nobody can take a lock away. Fourth, circular wait: they wait in a loop. Remove one, and there is no deadlock.</aside>
+</section>
+
+<!-- 04 OUR GOAL -->
+<section class="slide" data-part="PART 1 · PRESENT">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b></span><span class="part">PART 1 · PRESENT</span></div>
+    <div class="content">
+        <div class="kicker reveal">Our goal</div>
+        <h2 class="reveal" style="--d:1">Make the silent program speak.</h2>
+        <div class="goals">
+            <div class="panel goal reveal" style="--d:2"><span class="ic">✓</span><h3>Which threads</h3></div>
+            <div class="panel goal reveal" style="--d:3"><span class="ic">✓</span><h3>Which locks</h3></div>
+            <div class="panel goal reveal" style="--d:4"><span class="ic">✓</span><h3>Which code lines</h3></div>
+        </div>
+        <div class="nos reveal" style="--d:5"><span class="chip a">No code change</span><span class="chip a">No rebuild</span></div>
+        <div class="term reveal" style="--d:6"><span class="ps">$</span> <span class="hl">LD_PRELOAD=./build/libdetect.so</span> ./your_program</div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-a">Speaker A</span><span class="num"><b>04</b> / 16</span></div>
+    <aside class="notes">[Speaker A · 0:15 · 25 words] Our goal is simple. Find the deadlock. Show the threads, the locks, and the code lines. Do not change the code. Do not rebuild it.</aside>
+</section>
+
+<!-- 05 BIG PICTURE -->
+<section class="slide" data-part="PART 1 · PRESENT">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b>/src</span><span class="part">PART 1 · PRESENT</span></div>
+    <div class="content">
+        <div class="kicker reveal">Big picture</div>
+        <h2 class="reveal" style="--d:1">Four steps</h2>
+        <div class="flow">
+            <div class="panel fbox reveal" style="--d:2"><span class="n">STEP 1</span><h3>Catch</h3><p>every lock call</p><span class="file">interpose.c</span></div>
+            <div class="farrow reveal" style="--d:3">→</div>
+            <div class="panel fbox reveal" style="--d:3"><span class="n">STEP 2</span><h3>Record</h3><p>who <span class="green">holds</span>, who <span class="red">waits</span></p><span class="file">state.c</span></div>
+            <div class="farrow reveal" style="--d:4">→</div>
+            <div class="panel fbox reveal" style="--d:4"><span class="n">STEP 3</span><h3>Check</h3><p>for a loop every 500 ms</p><span class="file">detector.c<br>graph.c</span></div>
+            <div class="farrow reveal" style="--d:5">→</div>
+            <div class="panel fbox reveal" style="--d:5"><span class="n">STEP 4</span><h3>Report</h3><p>threads, locks, code lines</p><span class="file">report.c</span></div>
+        </div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-b">Speaker B</span><span class="num"><b>05</b> / 16</span></div>
+    <aside class="notes">[Speaker B · 0:20 · 37 words] Here is the big picture. Our tool has four steps. First, catch every lock call. Second, record who holds and who waits. Third, check for a loop. Fourth, report it. Each step is one source file.</aside>
+</section>
+
+<!-- 06 STEP 1 — CATCH (LD_PRELOAD) -->
+<section class="slide" data-part="PART 1 · PRESENT">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b>/src/interpose.c</span><span class="part">PART 1 · PRESENT</span></div>
+    <div class="content">
+        <div class="kicker reveal">Step 1 — Catch</div>
+        <h2 class="reveal" style="--d:1">LD_PRELOAD puts us in front</h2>
+        <div class="row">
+            <div class="layers">
+                <div class="layer reveal" style="--d:2"><h3>Your program</h3><div class="code">pthread_mutex_lock(&amp;A)</div></div>
+                <div class="down reveal" style="--d:2">↓</div>
+                <div class="layer ours reveal" style="--d:3"><h3 class="amber">libdetect.so — our library</h3>
+                    <ol>
+                        <li><b>1</b>note <span class="red">"waiting for A"</span></li>
+                        <li><b>2</b>call the real lock</li>
+                        <li><b>3</b>note <span class="green">"got A"</span></li>
+                    </ol>
+                </div>
+                <div class="down reveal" style="--d:4">↓</div>
+                <div class="layer reveal" style="--d:4"><h3>libc.so.6 — the real lock</h3></div>
+                <div class="down reveal" style="--d:5">↓</div>
+                <div class="layer kernel reveal" style="--d:5"><h3>Linux kernel — we do not touch it</h3></div>
+            </div>
+            <div class="side">
+                <p class="big reveal" style="--d:3">LD_PRELOAD loads our library <span class="amber">first</span>.</p>
+                <p class="lead reveal" style="--d:4">So our lock function runs before the real one.</p>
+                <div class="fnlist reveal" style="--d:5">
+                    <div>pthread_mutex_lock</div>
+                    <div>pthread_mutex_trylock</div>
+                    <div>pthread_mutex_unlock</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-b">Speaker B</span><div class="steps"><span class="on">1 Catch</span><span>2 Record</span><span>3 Check</span><span>4 Report</span></div><span class="num"><b>06</b> / 16</span></div>
+    <aside class="notes">[Speaker B · 0:30 · 55 words] Step one is catch. A mutex is a lock. Only one thread can hold it. LD_PRELOAD tells Linux to load our library first. So our lock function runs before the real one. It notes waiting. Then it calls the real lock. Then it notes got it. We catch three functions: lock, trylock and unlock.</aside>
+</section>
+
+<!-- 07 STEP 2 — RECORD -->
+<section class="slide" data-part="PART 1 · PRESENT">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b>/src/state.c</span><span class="part">PART 1 · PRESENT</span></div>
+    <div class="content">
+        <div class="kicker reveal">Step 2 — Record</div>
+        <h2 class="reveal" style="--d:1">Two tables</h2>
+        <div class="tables">
+            <div class="panel tbl reveal" style="--d:2">
+                <h3 class="green">holds[]</h3><p class="cap">Who holds each lock?</p>
+                <table><tr><th>LOCK</th><th>HELD BY</th></tr>
+                    <tr><td>A</td><td class="green">Thread 1</td></tr>
+                    <tr><td>B</td><td class="green">Thread 2</td></tr></table>
+            </div>
+            <div class="panel tbl reveal" style="--d:3">
+                <h3 class="red">waits[]</h3><p class="cap">Who waits for which lock?</p>
+                <table><tr><th>THREAD</th><th>WAITS FOR</th></tr>
+                    <tr><td>Thread 1</td><td class="red">B</td></tr>
+                    <tr><td>Thread 2</td><td class="red">A</td></tr></table>
+            </div>
+        </div>
+        <div class="why reveal" style="--d:5">
+            <span class="pill">Fixed size. <b>No malloc.</b></span>
+            <span class="arr">←</span>
+            <span class="pill">malloc uses locks inside</span>
+            <span class="arr">→</span>
+            <span class="pill">it would call our code again</span>
+            <span class="arr">→</span>
+            <span class="pill stop">in_dd flag stops the loop</span>
+        </div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-b">Speaker B</span><div class="steps"><span>1 Catch</span><span class="on">2 Record</span><span>3 Check</span><span>4 Report</span></div><span class="num"><b>07</b> / 16</span></div>
+    <aside class="notes">[Speaker B · 0:30 · 51 words] Step two is record. We keep two tables. The holds table says who holds each lock. The waits table says who waits for which lock. The tables have a fixed size. Why? We cannot use malloc here. Malloc uses locks inside. That would call our code again, in a loop.</aside>
+</section>
+
+<!-- 08 STEP 3 — DETECTOR THREAD -->
+<section class="slide" data-part="PART 1 · PRESENT">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b>/src/detector.c</span><span class="part">PART 1 · PRESENT</span></div>
+    <div class="content">
+        <div class="kicker reveal">Step 3 — Check</div>
+        <h2 class="reveal" style="--d:1">The detector thread</h2>
+        <div class="panel tl reveal" style="--d:2">
+            <div class="lane-row"><span class="lab">Thread 1</span><div class="track"><div class="run"></div><div class="stuck">stuck</div></div></div>
+            <div class="lane-row"><span class="lab">Thread 2</span><div class="track"><div class="run"></div><div class="stuck">stuck</div></div></div>
+            <div class="lane-row"><span class="lab amber">Detector</span><div class="track">
+                <span class="tick" style="left:8%"></span><span class="tick" style="left:20%"></span><span class="tick hit" style="left:32%"></span>
+                <span class="tick" style="left:44%"></span><span class="tick" style="left:56%"></span><span class="tick" style="left:68%"></span><span class="tick" style="left:80%"></span><span class="tick" style="left:92%"></span>
+            </div></div>
+            <div class="axis"><span>wakes up every 500 ms</span><span class="red">● loop found → report</span><span>still running</span></div>
+        </div>
+        <div class="facts">
+            <div class="panel reveal" style="--d:4"><small>OWN THREAD</small>It copies the tables and looks for a loop.</div>
+            <div class="panel reveal" style="--d:5"><small>NEVER STUCK</small>It never uses the program's locks.</div>
+        </div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-c">Speaker C</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span class="on">3 Check</span><span>4 Report</span></div><span class="num"><b>08</b> / 16</span></div>
+    <aside class="notes">[Speaker C · 0:25 · 46 words] Step three is check. Our library starts its own thread. We call it the detector. It wakes up every 500 milliseconds. It copies the tables and looks for a loop. It never uses the program's locks. So it still works when the program is stuck.</aside>
+</section>
+
+<!-- 09 STEP 3 — WAIT-FOR GRAPH -->
+<section class="slide" data-part="PART 1 · PRESENT">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b>/src/graph.c</span><span class="part">PART 1 · PRESENT</span></div>
+    <div class="content">
+        <div class="kicker reveal">Step 3 — Check</div>
+        <h2 class="reveal" style="--d:1">Wait-for graph: find the loop</h2>
+        <div class="wfg">
+            <table class="ttable">
+                <tr class="reveal" style="--d:2"><th>TIME</th><th>WHAT HAPPENS</th><th>GRAPH</th></tr>
+                <tr class="reveal" style="--d:2"><td>t0</td><td>T1 locks A</td><td class="green">A held by T1</td></tr>
+                <tr class="reveal" style="--d:3"><td>t1</td><td>T2 locks B</td><td class="green">B held by T2</td></tr>
+                <tr class="reveal" style="--d:4"><td>t2</td><td>T1 wants B → waits</td><td class="red">T1 → T2</td></tr>
+                <tr class="reveal" style="--d:5"><td>t3</td><td>T2 wants A → waits</td><td class="red">T2 → T1</td></tr>
+                <tr class="found reveal" style="--d:7"><td>≤ 500 ms</td><td colspan="2">detector finds the loop → report</td></tr>
+            </table>
+            <div class="graph reveal" style="--d:6">
+                <svg viewBox="0 0 760 470" aria-label="Wait-for graph: T1 waits for T2, T2 waits for T1">
+                    <defs>
+                        <marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+                            <path d="M0,0 L10,5 L0,10 z" fill="#ff5c5c"/>
+                        </marker>
+                    </defs>
+                    <path d="M 220 190 C 300 70, 460 70, 540 190" fill="none" stroke="#ff5c5c" stroke-width="7" marker-end="url(#ah)"/>
+                    <path d="M 540 290 C 460 410, 300 410, 220 290" fill="none" stroke="#ff5c5c" stroke-width="7" marker-end="url(#ah)"/>
+                    <text x="380" y="72" text-anchor="middle" fill="#ff5c5c" font-family="JetBrains Mono" font-size="26" font-weight="700">waits for B</text>
+                    <text x="380" y="430" text-anchor="middle" fill="#ff5c5c" font-family="JetBrains Mono" font-size="26" font-weight="700">waits for A</text>
+                    <circle cx="160" cy="240" r="92" fill="#161a20" stroke="#ece8df" stroke-width="4"/>
+                    <circle cx="600" cy="240" r="92" fill="#161a20" stroke="#ece8df" stroke-width="4"/>
+                    <text x="160" y="254" text-anchor="middle" fill="#ece8df" font-family="Bricolage Grotesque" font-size="50" font-weight="800">T1</text>
+                    <text x="600" y="254" text-anchor="middle" fill="#ece8df" font-family="Bricolage Grotesque" font-size="50" font-weight="800">T2</text>
+                </svg>
+                <p class="cap">loop = <span class="red">circular wait</span> = deadlock</p>
+            </div>
+        </div>
+        <div class="note-strip reveal" style="--d:8"><span>One lock at a time → <b>max one arrow out</b> → just follow the arrows.</span><span class="chip a">finds every loop · up to 16</span></div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-c">Speaker C</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span class="on">3 Check</span><span>4 Report</span></div><span class="num"><b>09</b> / 16</span></div>
+    <aside class="notes">[Speaker C · 0:55 · 99 words] We use a wait-for graph. Each circle is a thread. An arrow goes from the waiting thread. It points to the thread holding the lock. Thread 1 locks A. Thread 2 locks B. Thread 1 wants B. So we draw an arrow to Thread 2. Thread 2 wants A. So we draw an arrow back. Now the arrows make a loop. A loop means circular wait. That is a deadlock. A thread waits for only one lock at a time. So each circle has at most one arrow out. To find a loop, we just follow the arrows.</aside>
+</section>
+
+<!-- 10 STEP 4 — REPORT -->
+<section class="slide" data-part="PART 1 · PRESENT">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b>/src/report.c</span><span class="part">PART 1 · PRESENT</span></div>
+    <div class="content">
+        <div class="kicker reveal">Step 4 — Report</div>
+        <h2 class="reveal" style="--d:1">The real output</h2>
+        <div class="report">
+<div class="term reveal" style="--d:2"><span class="title">[DEADLOCK DETECTED] 2 threads in cycle</span>
+
+  Thread 514
+      <span class="green">holds  </span> mutex 0x56fc6b20b070   at <span class="hl">bank.c:89</span>
+      <span class="red">waiting</span> mutex 0x56fc6b20b030   at <span class="hl">bank.c:94</span>
+  Thread 513
+      <span class="green">holds  </span> mutex 0x56fc6b20b030   at <span class="hl">bank.c:65</span>
+      <span class="red">waiting</span> mutex 0x56fc6b20b070   at <span class="hl">bank.c:70</span>
+
+  Cycle: T514 -&gt; T513 -&gt; T514
+  Hint : acquire locks in a consistent global order</div>
+            <div class="ann">
+                <div class="reveal" style="--d:3"><b class="green">holds</b>got this lock at this line</div>
+                <div class="reveal" style="--d:4"><b class="red">waiting</b>stuck at this line</div>
+                <div class="reveal" style="--d:5"><b class="amber">Cycle</b>the loop</div>
+                <div class="reveal" style="--d:6"><b class="cyan" style="color:var(--cyan)">Hint</b>how to fix it</div>
+            </div>
+        </div>
+        <div class="small-print reveal" style="--d:7"><span class="chip a">code lines: dladdr + addr2line · needs -g and PIE</span><span class="chip a">DD_DOT_OUT → picture (Graphviz)</span></div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-d">Speaker D</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span>3 Check</span><span class="on">4 Report</span></div><span class="num"><b>10</b> / 16</span></div>
+    <aside class="notes">[Speaker D · 0:40 · 69 words] Step four is report. This is the real output. It says: deadlock detected, two threads in a loop. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint tells us how to fix it. Always lock in the same order. We can also save the loop as a picture.</aside>
+</section>
+
+<!-- 11 HOW WE TESTED -->
+<section class="slide" data-part="PART 1 · PRESENT">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b>/tests</span><span class="part">PART 1 · PRESENT</span></div>
+    <div class="content">
+        <div class="kicker reveal">How we tested</div>
+        <h2 class="reveal" style="--d:1">Tests that must pass</h2>
+        <div class="tests">
+            <div class="panel tcol bad reveal" style="--d:2"><h3 class="red">Must deadlock + report</h3><ul>
+                <li>bank<small>2 threads, money transfer</small></li>
+                <li>sample_webapp<small>looks like real code</small></li>
+                <li>cycle3<small>3 threads in one loop</small></li>
+                <li>two_pairs<small>2 loops at once</small></li></ul></div>
+            <div class="panel tcol good reveal" style="--d:3"><h3 class="green">Must stay quiet</h3><ul>
+                <li>no_deadlock<small>same lock order → no report</small></li>
+                <li>condvar<small>condition variable → no report</small></li></ul></div>
+            <div class="panel tcol edge reveal" style="--d:4"><h3 class="amber">Hard cases</h3><ul>
+                <li>robust<small>lock owner died</small></li>
+                <li>errcheck<small>wrong thread unlocks</small></li>
+                <li>longcycle<small>70 threads in one loop</small></li></ul></div>
+        </div>
+        <div class="method">
+            <div class="panel reveal" style="--d:5"><small>PTHREAD_BARRIER, NOT SLEEP</small>The deadlock happens every time.</div>
+            <div class="panel reveal" style="--d:6"><small>MAKE REGRESS</small>Each hard-case test fails if we remove its fix.</div>
+        </div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-e">Speaker E</span><span class="num"><b>11</b> / 16</span></div>
+    <aside class="notes">[Speaker E · 0:40 · 70 words] We wrote test programs. Some must deadlock. Bank and sample webapp have two threads. Cycle3 has three threads. Two pairs has two loops at once. One must never deadlock. We also test hard cases. One has seventy threads in a single loop. We use a barrier, not sleep. So the deadlock happens every time. Each hard-case test fails if we remove its fix. Now let us show you the real thing.</aside>
+</section>
+
+<!-- =========================================================
+     PART B — LIVE DEMO
+     ========================================================= -->
+
+<!-- 12 LIVE DEMO -->
+<section class="slide" data-part="PART 2 · DEMO">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>dd</b> — bash</span><span class="part">PART 2 · DEMO</span></div>
+    <div class="demo-wrap">
+        <h1 class="reveal"><span class="dot"></span>Live demo</h1>
+        <div class="demo-steps">
+            <div class="reveal" style="--d:2"><b>1</b><p>bank alone <span class="red">stops forever</span></p><code>bank → exit 124</code></div>
+            <div class="reveal" style="--d:3"><b>2</b><p>same command + LD_PRELOAD → <span class="amber">report</span></p><code>LD_PRELOAD=./build/libdetect.so</code></div>
+            <div class="reveal" style="--d:4"><b>3</b><p>picture of the <span class="red">loop</span></p><code>DD_DOT_OUT=cycle.dot</code></div>
+            <div class="reveal" style="--d:5"><b>4</b><p>same lock order → <span class="green">finishes, no report</span></p><code>no_deadlock → exit 0</code></div>
+        </div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-e">Speaker E</span><span class="num"><b>12</b> / 16</span></div>
+    <aside class="notes">[Speaker E · 1:50 · demo] If time is short, skip step 3.
+STEP 1 — type: timeout 3 ./build/bank — say: This is the bank program, with no tool. It stops. There is no message at all. Exit code 124 means timeout stopped it.
+STEP 2 — type: timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank — say: Same command. We only add LD_PRELOAD. Now we get a report. Look at lines 65, 70, 89 and 94.
+STEP 3 — type: DD_DOT_OUT=cycle.dot timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank; dot -Tpng cycle.dot -o cycle.png — say: We can save the loop as a picture. Red arrows mean waiting.
+STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock — say: This version locks in the same order. It finishes with exit code 0. There is no report. So there is no false alarm.</aside>
+</section>
+
+<!-- =========================================================
+     PART C — AFTER THE DEMO: RESULTS + SUMMARY
+     ========================================================= -->
+
+<!-- 13 RESULTS -->
+<section class="slide" data-part="PART 3 · RESULTS">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b>/tests/logs</span><span class="part">PART 3 · RESULTS</span></div>
+    <div class="content">
+        <div class="kicker reveal">Results</div>
+        <h2 class="reveal" style="--d:1">It works. It has a cost.</h2>
+        <div class="results">
+            <table class="rtable reveal" style="--d:2">
+                <tr><th>PROGRAM</th><th>WITHOUT TOOL</th><th>WITH LD_PRELOAD</th></tr>
+                <tr><td>bank</td><td class="red">hangs</td><td class="green">hangs + report</td></tr>
+                <tr><td>sample_webapp</td><td class="red">hangs</td><td class="green">hangs + report</td></tr>
+                <tr><td>cycle3</td><td class="red">hangs</td><td class="green">report: 3 threads</td></tr>
+                <tr><td>two_pairs</td><td class="red">hangs</td><td class="green">2 reports, 1 per loop</td></tr>
+                <tr><td>no_deadlock</td><td class="green">exit 0</td><td class="green">exit 0, no report</td></tr>
+            </table>
+            <div class="rside">
+                <div class="panel stat reveal" style="--d:3"><div class="v">20 / 20</div><div class="k">runs found the deadlock<br>(bank and sample_webapp)</div></div>
+                <div class="panel cost reveal" style="--d:4">
+                    <div class="muted"><span>cost per lock + unlock</span></div>
+                    <div><span>1 thread</span><span>2.3 → 72.8 ns <span class="x">×31.7</span></span></div>
+                    <div><span>4 threads, 1 lock</span><span>38.7 → 296.1 ns <span class="x">×7.7</span></span></div>
+                </div>
+            </div>
+        </div>
+        <div class="takeaway reveal" style="--d:6">Good for finding bugs. <span class="muted">Too slow to leave on all the time.</span></div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-d">Speaker D</span><span class="num"><b>13</b> / 16</span></div>
+    <aside class="notes">[Speaker D · 0:40 · 73 words] Here are the results. Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. That means no false alarm. We ran bank and sample webapp twenty times each. It found the deadlock every time. But the tool has a cost. One thread: lock plus unlock is about 32 times slower. Use it to find bugs. Do not leave it on.</aside>
+</section>
+
+<!-- 14 LIMITS & NEXT STEPS -->
+<section class="slide" data-part="PART 3 · RESULTS">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b>/README.md</span><span class="part">PART 3 · RESULTS</span></div>
+    <div class="content">
+        <div class="kicker reveal">Limits &amp; next steps</div>
+        <h2 class="reveal" style="--d:1">What it cannot do yet</h2>
+        <div class="limits">
+            <div class="panel reveal" style="--d:2"><span class="tag red">LIMIT</span><h3>Normal mutex only</h3><p>No condition variables, rwlock or semaphore.</p></div>
+            <div class="panel reveal" style="--d:3"><span class="tag red">LIMIT</span><h3>Finds it after</h3><p>It finds a deadlock after it happens. It does not stop it.</p></div>
+            <div class="panel next reveal" style="--d:4"><span class="tag amber">NEXT STEP</span><h3>Warn early</h3><p>Warn about a bad lock order before a deadlock happens.</p></div>
+        </div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-e">Speaker E</span><span class="num"><b>14</b> / 16</span></div>
+    <aside class="notes">[Speaker E · 0:15 · 26 words] Our tool has limits. It only sees normal mutex locks. It finds a deadlock after it happens. Next, we want to warn before it happens.</aside>
+</section>
+
+<!-- 15 SUMMARY -->
+<section class="slide" data-part="PART 3 · SUMMARY">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b></span><span class="part">PART 3 · SUMMARY</span></div>
+    <div class="content">
+        <div class="kicker reveal">Summary</div>
+        <h2 class="reveal" style="--d:1">Three things to remember</h2>
+        <div class="keys">
+            <div class="panel key reveal" style="--d:2"><span class="n">1</span><p>A deadlock is a <span class="red">loop</span> in the wait-for graph.</p></div>
+            <div class="panel key reveal" style="--d:3"><span class="n">2</span><p>Our tool finds it with <span class="amber">no code change</span> and shows the exact lines.</p></div>
+            <div class="panel key reveal" style="--d:4"><span class="n">3</span><p>The fix: <span class="green">lock in the same order.</span></p></div>
+        </div>
+        <div class="dpa">
+            <div class="reveal" style="--d:5"><b class="amber">DETECTION</b><span>this tool</span></div>
+            <div class="reveal" style="--d:6"><b class="green">PREVENTION</b><span>same lock order (demo step 4)</span></div>
+            <div class="reveal" style="--d:7"><b style="color:var(--cyan)">AVOIDANCE</b><span>our Banker's simulator · docs/banker.html</span></div>
+        </div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-e">Speaker E</span><span>try it: docs/playground.html</span><span class="num"><b>15</b> / 16</span></div>
+    <aside class="notes">[Speaker E · 0:25 · 44 words] To sum up. A deadlock is a loop in the wait-for graph. Our tool finds it without changing the code. It shows the exact lines. The fix is simple: lock in the same order. Detect, prevent, avoid — we used all three ideas from class.</aside>
+</section>
+
+<!-- 16 THANK YOU / Q&A -->
+<section class="slide" data-part="PART 3 · SUMMARY">
+    <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b></span><span class="part">Q &amp; A</span></div>
+    <div class="end-wrap">
+        <div class="kicker reveal">Deadlock Detector</div>
+        <h1 class="reveal" style="--d:1">Thank you.<br><span class="amber">Questions?<span class="cursor"></span></span></h1>
+        <p class="sub reveal" style="--d:2">03603332 Operating Systems · Group Project</p>
+    </div>
+    <div class="team">
+        <div class="reveal" style="--d:3"><b>Supawit Chaiyanusak</b><span>6730300591</span></div>
+        <div class="reveal" style="--d:4"><b>Chayanin Iamsakul</b><span>6730300094</span></div>
+        <div class="reveal" style="--d:5"><b>Pattanadech Mahimuang</b><span>6730300850</span></div>
+        <div class="reveal" style="--d:6"><b>Thatthorn Jiamton</b><span>6730300779</span></div>
+        <div class="reveal" style="--d:7"><b>Phutawan Supkerd</b><span>6730300884</span></div>
+    </div>
+    <div class="foot"><span>Deadlock Detector</span><span class="spk spk-all">Everyone</span><span class="num"><b>16</b> / 16</span></div>
+    <aside class="notes">[Everyone] Thank you. Any questions?</aside>
+</section>
+
+</main>
+</div>
+
+<!-- Presenter helpers (outside the slide stage) -->
+<div class="notes-panel" id="notesPanel"><h4 id="notesTitle">NOTES</h4><div id="notesBody"></div></div>
+<div class="help-hint" id="helpHint">click / → next · right-click / ← back · N notes · E edit</div>
+<nav class="deck-controls nav-btns" id="navBtns" aria-label="Slide navigation">
+    <button id="prevBtn" title="Previous slide" aria-label="Previous slide">‹</button>
+    <button id="nextBtn" title="Next slide" aria-label="Next slide">›</button>
+</nav>
+<div class="edit-hotzone"></div>
+<button class="edit-toggle" id="editToggle" title="Edit mode (E)">✎</button>
+
+<script>
+/* ===========================================
+   SLIDE PRESENTATION CONTROLLER
+   Fixed 1920×1080 stage, keyboard / wheel / touch navigation, speaker notes (N)
+   =========================================== */
+class SlidePresentation {
+    constructor() {
+        this.slides = document.querySelectorAll('.slide');
+        this.stage = document.getElementById('deckStage');
+        this.current = 0;
+        this.notesPanel = document.getElementById('notesPanel');
+        this.setupStageScale();
+        this.setupKeyboardNav();
+        this.setupWheelNav();
+        this.setupTouchNav();
+        this.setupMouseNav();
+        const fromHash = parseInt(location.hash.replace('#', ''), 10);
+        this.goToSlide(Number.isFinite(fromHash) ? fromHash - 1 : 0);
+    }
+
+    /* Scale the whole stage to the window; letterbox, never reflow */
+    setupStageScale() {
+        const scale = () => {
+            const f = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+            const x = (window.innerWidth - 1920 * f) / 2;
+            const y = (window.innerHeight - 1080 * f) / 2;
+            this.stage.style.transform = `translate(${x}px, ${y}px) scale(${f})`;
+        };
+        scale();
+        window.addEventListener('resize', scale);
+    }
+
+    setupKeyboardNav() {
+        document.addEventListener('keydown', (e) => {
+            if (e.target.isContentEditable) return;
+            const k = e.key;
+            if (['ArrowRight', 'ArrowDown', 'PageDown', ' '].includes(k)) { e.preventDefault(); this.next(); }
+            else if (['ArrowLeft', 'ArrowUp', 'PageUp'].includes(k)) { e.preventDefault(); this.prev(); }
+            else if (k === 'Home') this.goToSlide(0);
+            else if (k === 'End') this.goToSlide(this.slides.length - 1);
+            else if (k === 'n' || k === 'N') { this.notesPanel.classList.toggle('show'); this.renderNotes(); }
+        });
+    }
+
+    /* Debounced mouse wheel: one slide per gesture */
+    setupWheelNav() {
+        let lock = false;
+        window.addEventListener('wheel', (e) => {
+            if (lock || Math.abs(e.deltaY) < 30 || this.notesPanel.contains(e.target)) return;
+            lock = true;
+            e.deltaY > 0 ? this.next() : this.prev();
+            setTimeout(() => { lock = false; }, 700);
+        }, { passive: true });
+    }
+
+    setupTouchNav() {
+        let sx = 0, sy = 0;
+        window.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+        window.addEventListener('touchend', (e) => {
+            const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+            if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) dx < 0 ? this.next() : this.prev();
+        }, { passive: true });
+    }
+
+    /* Mouse: left click = next, right click = back, ‹ › buttons appear when the mouse moves.
+       Clicks are ignored in edit mode and on the notes panel / editor controls. */
+    setupMouseNav() {
+        const ignore = (t) => document.body.classList.contains('editing') ||
+            t.closest('.notes-panel, .edit-toggle, .edit-hotzone, .nav-btns, a, button');
+        document.querySelector('.deck-viewport').addEventListener('click', (e) => {
+            if (e.button !== 0 || ignore(e.target) || window.getSelection().toString()) return;
+            this.next();
+        });
+        document.querySelector('.deck-viewport').addEventListener('contextmenu', (e) => {
+            if (ignore(e.target)) return;
+            e.preventDefault();
+            this.prev();
+        });
+        document.getElementById('prevBtn').addEventListener('click', () => this.prev());
+        document.getElementById('nextBtn').addEventListener('click', () => this.next());
+
+        const btns = document.getElementById('navBtns');
+        let t = null;
+        window.addEventListener('mousemove', () => {
+            btns.classList.add('show');
+            clearTimeout(t);
+            t = setTimeout(() => btns.classList.remove('show'), 2000);
+        });
+    }
+
+    next() { this.goToSlide(this.current + 1); }
+    prev() { this.goToSlide(this.current - 1); }
+
+    goToSlide(i) {
+        this.current = Math.max(0, Math.min(i, this.slides.length - 1));
+        this.slides.forEach((s, idx) => {
+            s.classList.toggle('active', idx === this.current);
+            s.classList.toggle('visible', idx === this.current);
+        });
+        history.replaceState(null, '', '#' + (this.current + 1));
+        this.renderNotes();
+    }
+
+    renderNotes() {
+        if (!this.notesPanel.classList.contains('show')) return;
+        const n = this.slides[this.current].querySelector('.notes');
+        document.getElementById('notesTitle').textContent = `NOTES · SLIDE ${this.current + 1} / ${this.slides.length}`;
+        document.getElementById('notesBody').innerText = n ? n.textContent.trim() : '';
+    }
+}
+window.presentation = new SlidePresentation();
+
+/* ===========================================
+   INLINE EDITOR — E or the top-left button toggles edit mode,
+   Ctrl+S downloads the edited HTML file
+   =========================================== */
+const editor = {
+    isActive: false,
+    selector: '.slide h1, .slide h2, .slide h3, .slide p, .slide li, .slide td, .slide th, .slide .kicker, .slide .term, .slide .ann div, .slide .chip, .slide .team b',
+    toggleEditMode() {
+        this.isActive = !this.isActive;
+        document.body.classList.toggle('editing', this.isActive);
+        document.getElementById('editToggle').classList.toggle('active', this.isActive);
+        document.querySelectorAll(this.selector).forEach(el => {
+            if (this.isActive) el.setAttribute('contenteditable', 'true');
+            else el.removeAttribute('contenteditable');
+        });
+    },
+    save() {
+        const wasActive = this.isActive;
+        if (wasActive) this.toggleEditMode();
+        const html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' }));
+        a.download = 'deadlock-detector-slides.html';
+        a.click();
+        if (wasActive) this.toggleEditMode();
+    }
+};
+const editToggle = document.getElementById('editToggle');
+const hotzone = document.querySelector('.edit-hotzone');
+let hideTimeout = null;
+editToggle.addEventListener('click', () => editor.toggleEditMode());
+hotzone.addEventListener('click', () => editor.toggleEditMode());
+hotzone.addEventListener('mouseenter', () => { clearTimeout(hideTimeout); editToggle.classList.add('show'); });
+hotzone.addEventListener('mouseleave', () => { hideTimeout = setTimeout(() => { if (!editor.isActive) editToggle.classList.remove('show'); }, 400); });
+editToggle.addEventListener('mouseenter', () => clearTimeout(hideTimeout));
+editToggle.addEventListener('mouseleave', () => { hideTimeout = setTimeout(() => { if (!editor.isActive) editToggle.classList.remove('show'); }, 400); });
+document.addEventListener('keydown', (e) => {
+    if ((e.key === 'e' || e.key === 'E') && !e.target.isContentEditable) editor.toggleEditMode();
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); editor.save(); }
+});
+/* Fade the help hint after a few seconds */
+setTimeout(() => { const h = document.getElementById('helpHint'); if (h) h.style.opacity = '0'; }, 6000);
+</script>
+</body>
+</html>
