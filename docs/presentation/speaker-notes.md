@@ -1,11 +1,11 @@
 # Speaker Notes — Deadlock Detector
 
-Total 8:10 (6:20 presenting + 1:50 demo). Pace: about 110 words per minute.
+Total 8:13 (6:23 presenting + 1:50 demo). Pace: about 110 words per minute.
 Speakers are labelled **A–E**. In the slides, the label is in the footer, and **N** shows these notes.
 
 | Speaker | Slides | Before the demo | After the demo | Presenting time |
 |---|---|---|---|---|
-| **A** — นายภูตะวัน ทรัพย์เกิด 6730300884 | 1–4 · title, problem, Coffman, goal | 1:20 | — | **1:20** |
+| **A** — นายภูตะวัน ทรัพย์เกิด 6730300884 | 1–4 · title, problem, Coffman, goal | 1:23 | — | **1:23** |
 | **B** — นายศุภวิชญ์ ไชยานุศักดิ์ 6730300591 | 5–7 · big picture, LD_PRELOAD, tables | 1:20 | — | **1:20** |
 | **C** — นายชญานิน เอี่ยมสกุล 6730300094 | 8–9 · detector thread, wait-for graph | 1:20 | — | **1:20** |
 | **D** — นายธรรศธรณ์ เจียมตน 6730300779 | 10 · report, 13 · results | 0:40 | 0:40 | **1:20** |
@@ -25,8 +25,8 @@ Hello everyone. Our project is the Deadlock Detector. It finds deadlocks without
 ### Slide 2 · Speaker A (นายภูตะวัน ทรัพย์เกิด) · The Problem — 0:30 (55 words)
 Look at this bank program. Two threads move money. Thread 1 moves money from Alice to Bob. Thread 2 moves money from Bob to Alice. Thread 1 locks Alice first. Thread 2 locks Bob first. Now each one waits for the other. Nobody lets go. The program does not crash. It shows no error. It just stops.
 
-### Slide 3 · Speaker A (นายภูตะวัน ทรัพย์เกิด) · Deadlock Basics — 0:25 (45 words)
-A deadlock needs four conditions. First, mutual exclusion: one thread per lock. Second, hold and wait: each holds one, wants another. Third, no preemption: nobody can take a lock away. Fourth, circular wait: they wait in a loop. Remove one, and there is no deadlock.
+### Slide 3 · Speaker A (นายภูตะวัน ทรัพย์เกิด) · Deadlock Basics — 0:28 (51 words)
+A deadlock needs four conditions. First, mutual exclusion: one thread per lock. Second, hold and wait: each holds one, wants another. Third, no preemption: nobody can take a lock away. Fourth, circular wait: they wait in a loop. Remove one, and there is no deadlock. Our tool looks for the loop.
 
 ### Slide 4 · Speaker A (นายภูตะวัน ทรัพย์เกิด) · Our Goal — 0:15 (25 words)
 Our goal: find the deadlock. Show the threads, locks, and code lines. No code change. No rebuild. Now Frank will show how our tool works.
