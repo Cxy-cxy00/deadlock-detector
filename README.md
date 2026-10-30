@@ -178,6 +178,40 @@ tools/
   playground.py    เซิร์ฟเวอร์ท้องถิ่นที่ compile + รันโค้ดให้หน้า playground
 ```
 
+## แผนที่โค้ด: แต่ละขั้นอยู่ฟังก์ชันไหน
+
+ใช้ตอบคำถามว่า "ส่วนนี้อยู่ตรงไหนในโค้ด" เรียงตาม 4 ขั้นในสไลด์ (catch → record → check → report)
+ให้ยึดชื่อฟังก์ชันเป็นหลัก ส่วนเลขบรรทัดอาจเลื่อนได้ถ้ามีการแก้โค้ดภายหลัง
+
+| ขั้น | ทำอะไร | ฟังก์ชัน |
+|---|---|---|
+| 1 catch | หาฟังก์ชันตัวจริงด้วย `dlsym(RTLD_NEXT)` หาไม่เจอ → `abort()` | [`resolve_one`](src/interpose.c#L83), [`dd_interpose_resolve`](src/interpose.c#L98) |
+| | wrapper ของ lock: `wait_begin` → ล็อกจริง (deadlock ค้างที่ [บรรทัดนี้](src/interpose.c#L167)) → `wait_end` → `acquired` | [`pthread_mutex_lock`](src/interpose.c#L152) |
+| | wrapper ของ trylock / unlock (unlock จด `released` **ก่อน** ปล่อยจริง) | [`pthread_mutex_trylock`](src/interpose.c#L180), [`pthread_mutex_unlock`](src/interpose.c#L200) |
+| | เก็บ PC ของจุดที่เรียกล็อกด้วย `__builtin_return_address(0)` | [interpose.c:153](src/interpose.c#L153) |
+| | ธง `in_dd` กันโค้ดของเราวนกลับเข้า wrapper | [interpose.c:42](src/interpose.c#L42) |
+| 2 record | ขนาดตารางคงที่ (`DD_MAX_THREADS`, `DD_MAX_MUTEXES`) และคาบตรวจ `DD_CHECK_INTERVAL_MS` | [common.h](src/common.h#L10) |
+| | เริ่มรอ + จดคู่ลำดับการล็อก (ใช้เตือน lock-order inversion) | [`dd_state_wait_begin`](src/state.c#L210), [`note_order`](src/state.c#L124) |
+| | เลิกรอ / ได้ล็อก / ปล่อยล็อก | [`dd_state_wait_end`](src/state.c#L240), [`dd_state_acquired`](src/state.c#L253), [`dd_state_released`](src/state.c#L275) |
+| 3 check | constructor สร้าง detector thread ตอนโหลด library | [`dd_startup`](src/detector.c#L176), [`dd_detector_start`](src/detector.c#L156) |
+| | ลูปตื่นทุก 500 ms — บรรทัดแรกตั้ง `in_dd` ค้าง จึงไม่โผล่ในกราฟ | [`detector_main`](src/detector.c#L134) |
+| | หนึ่งรอบตรวจ: หยิบคิว inversion → สร้างกราฟ → หา cycle → รายงานเฉพาะวงใหม่ | [`dd_detector_check_once`](src/detector.c#L98) |
+| | สร้างลูกศร waiter → holder จาก snapshot ของตาราง | [`dd_graph_build`](src/graph.c#L62) |
+| | DFS สามสี (WHITE/GRAY/BLACK) เดินตามโซ่ เจอ GRAY = cycle, เกิน 64 ตั้ง `partial` | [`dd_graph_find_cycles`](src/graph.c#L107) |
+| 4 report | พิมพ์ `[DEADLOCK DETECTED]` | [`dd_report_cycle`](src/report.c#L153) |
+| | แปลง PC เป็น `file:line` ด้วย `dladdr` + `addr2line` (ลบ 1 จาก PC ที่ [บรรทัดนี้](src/report.c#L101)) | [`dd_report_resolve_site`](src/report.c#L79) |
+| | พิมพ์ `[LOCK ORDER INVERSION]` / เขียนไฟล์ DOT | [`dd_report_inversion`](src/report.c#L237), [`dd_report_dot`](src/report.c#L338) |
+
+กรณีขอบที่ `make regress` ทดสอบ แต่ละเทสชี้ไปที่โค้ดที่แก้ปัญหานั้น (ถ้าลบโค้ดส่วนนั้นออก เทสจะไม่ผ่าน):
+
+| เทส | ปัญหา | โค้ดที่รับมือ |
+|---|---|---|
+| `robust` | เจ้าของตายขณะถือล็อก → คืน `EOWNERDEAD` แต่ถือว่าได้ล็อกแล้ว | [`lock_was_acquired`](src/interpose.c#L148) |
+| `errcheck` | คนที่ไม่ใช่เจ้าของสั่ง unlock → คงเจ้าของเดิมไว้ในตาราง | [`dd_state_released`](src/state.c#L279) |
+| `longcycle` | วงยาว 70 เกินที่เก็บได้ → รายงานเป็น partial ไม่วาดลูกศรปิดวง | [graph.c:150](src/graph.c#L150), [report.c:183](src/report.c#L183) |
+| `lockorder` | ล็อกสลับลำดับแต่ยังไม่ค้าง → เตือนครั้งเดียว และไม่เตือนซ้ำถ้าคู่นั้นอยู่ใน deadlock แล้ว | [`note_order`](src/state.c#L124), [`covered_by_cycle`](src/detector.c#L78) |
+| `condvar` | `pthread_cond_wait` ล็อกคืนโดยไม่ผ่าน wrapper → เตือนครั้งเดียว ไม่รายงาน deadlock ปลอม | [`dd_state_released`](src/state.c#L275) |
+
 ## หน้าเว็บที่กดรันโค้ดได้จริง
 
 วางโค้ด C แล้วกดรันผ่านเครื่องมือ เห็นรายงาน เห็น wait-for graph เป็นภาพ
