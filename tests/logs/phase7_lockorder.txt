@@ -1,0 +1,44 @@
+# Phase 7 — lock-order inversion (ข้อ 7.1)
+# เครื่อง: glibc 2.43 · gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0 · kernel 6.6.114.1-microsoft-standard-WSL2
+
+## $ timeout 10 env LD_PRELOAD=./build/libdetect.so ./build/lockorder
+
+[LOCK ORDER INVERSION] 2 mutexes locked in opposite orders
+
+  Order 1 (thread 924): mutex 0x5efbf1557060 -> mutex 0x5efbf15570a0
+      locked  mutex 0x5efbf1557060   at lockorder.c:31
+      then    mutex 0x5efbf15570a0   at lockorder.c:32
+  Order 2 (thread 925): mutex 0x5efbf15570a0 -> mutex 0x5efbf1557060
+      locked  mutex 0x5efbf15570a0   at lockorder.c:42
+      then    mutex 0x5efbf1557060   at lockorder.c:43
+
+  Risk : no deadlock yet — if both orders run at the same time, they will deadlock
+  Hint : acquire locks in a consistent global order
+
+---- exit=0 ----
+
+## bank x10: ต้องมี [DEADLOCK DETECTED] 1 ครั้ง และ [LOCK ORDER INVERSION] 0 ครั้งทุกรอบ
+run 1: deadlock=1 inversion=0
+run 2: deadlock=1 inversion=0
+run 3: deadlock=1 inversion=0
+run 4: deadlock=1 inversion=0
+run 5: deadlock=1 inversion=0
+run 6: deadlock=1 inversion=0
+run 7: deadlock=1 inversion=0
+run 8: deadlock=1 inversion=0
+run 9: deadlock=1 inversion=0
+run 10: deadlock=1 inversion=0
+
+## โปรแกรม deadlock อื่น: จำนวน [DEADLOCK DETECTED] / [LOCK ORDER INVERSION]
+sample_webapp: deadlock=1 inversion=0
+two_pairs: deadlock=2 inversion=0
+cycle3: deadlock=1 inversion=0
+robust: deadlock=1 inversion=0
+errcheck: deadlock=1 inversion=0
+
+## ไม่มี deadlock: no_deadlock / condvar ต้องไม่มีทั้งสองอย่าง
+no_deadlock: exit=0 deadlock=0 inversion=0
+condvar: exit=0 deadlock=0 inversion=0
+
+## ถอย fix ออกชั่วคราว (ลบการเรียก note_order ใน dd_state_wait_begin) -> ข้อ lockorder ต้องไม่ผ่าน
+lockorder ด้วย library ที่ถอด fix: inversion=0  -> ข้อ 'เตือน 1 ครั้ง' ของ make regress ไม่ผ่าน

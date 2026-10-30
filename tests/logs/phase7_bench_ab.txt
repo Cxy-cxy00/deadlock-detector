@@ -1,0 +1,12 @@
+# Phase 7 — overhead ของการจดลำดับการล็อก (lock-order inversion) A/B กับ library ก่อนเพิ่ม
+# เครื่อง: glibc 2.43 · gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0 · kernel 6.6.114.1-microsoft-standard-WSL2
+# cpu: 13th Gen Intel(R) Core(TM) i9-13900H
+# old.so = src/ ของ HEAD (cafcf3e) · new = build/libdetect.so · รันสลับกันในรอบเดียวกัน
+# ./build/bench <mode> → median ns/pair (1,000,000 คู่ × 15 รอบ)
+
+old.so uncontended median=72.1     new uncontended median=73.2
+old.so uncontended median=72.4     new uncontended median=73.1
+old.so uncontended median=72.1     new uncontended median=73.6
+old.so contended   median=304.1    new contended   median=325.0
+old.so contended   median=301.7    new contended   median=309.1
+old.so contended   median=290.1    new contended   median=310.7

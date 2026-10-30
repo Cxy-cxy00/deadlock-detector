@@ -9,6 +9,8 @@
 #   longcycle  ข้อ 2.7  cycle ยาว 70 รายงานเป็น partial path ไม่ปิดวงปลอม
 #   condvar    ข้อ 5.1  โปรแกรม condvar ที่ไม่มี deadlock ต้องไม่มีรายงาน และเตือนแค่ครั้งเดียว
 #   trace      DD_TRACE เขียน timeline ครบ และไม่ถูก process ลูก (addr2line) เขียนทับ
+#   lockorder  ข้อ 7.1  ล็อกสลับลำดับแต่ยังไม่ค้าง ต้องเตือน inversion ครั้งเดียว
+#              no_deadlock ห้ามเตือน · bank เตือนแค่ deadlock ไม่เตือน inversion ซ้ำ
 set -u
 cd "$(dirname "$0")/.." || exit 1
 
@@ -81,6 +83,22 @@ head -1 "$TRACE" | grep -qxF "# dd-trace 1" && ok "มีหัวไฟล์ t
 DD_TRACE="$TRACE" run_preload 20 ./build/condvar
 grep -q ' relx ' "$TRACE" && ok "condvar จด relx (unlock ไม่ตรงเจ้าของ)" || bad "condvar ไม่มี relx"
 [ "$(grep -c ' trunc$' "$TRACE")" -le 1 ] && ok "trunc ไม่เกิน 1 บรรทัด" || bad "trunc ซ้ำหลายบรรทัด"
+
+echo "== lockorder (ข้อ 7.1)"
+INV='[LOCK ORDER INVERSION]'
+run_preload 10 ./build/lockorder
+[ "$RC" -eq 0 ] && ok "จบเอง (exit 0)" || bad "ควร exit 0 แต่ได้ $RC"
+[ "$(count "$INV")" -eq 1 ] && ok "เตือน $INV หนึ่งครั้ง" || bad "ควรเตือน 1 ครั้ง ได้ $(count "$INV")"
+[ "$(count "$MARK")" -eq 0 ] && ok "ไม่มี [DEADLOCK DETECTED] (ยังไม่ค้าง)" || bad "มีรายงาน deadlock ทั้งที่ไม่ค้าง"
+[ "$(grep -cE "(locked|then) +mutex 0x[0-9a-f]+ +at lockorder\.c:[0-9]+" "$ERR")" -eq 4 ] \
+    && ok "ชี้บรรทัดใน lockorder.c ครบ 4 จุด" || bad "ควรชี้ lockorder.c:<บรรทัด> 4 จุด"
+run_preload 15 ./build/no_deadlock
+[ "$RC" -eq 0 ] && [ "$(count "$INV")" -eq 0 ] && ok "no_deadlock ล็อกตามลำดับ ไม่เตือน" \
+    || bad "no_deadlock ควร exit 0 และไม่เตือน (exit $RC, เตือน $(count "$INV"))"
+run_preload 5 ./build/bank
+[ "$(count "$MARK 2 threads in cycle")" -eq 1 ] && [ "$(count "$INV")" -eq 0 ] \
+    && ok "bank รายงาน deadlock ครั้งเดียว ไม่เตือน inversion ซ้ำ" \
+    || bad "bank ควรมี deadlock 1 / inversion 0 (ได้ $(count "$MARK") / $(count "$INV"))"
 
 echo
 if [ "$fail" -eq 0 ]; then echo "ผ่านทุกข้อ"; exit 0; else echo "มีข้อที่ไม่ผ่าน"; exit 1; fi
