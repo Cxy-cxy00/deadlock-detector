@@ -410,6 +410,7 @@ make playground</code></pre>
     <tr><th>เรื่อง</th><th>รายละเอียด</th></tr>
     <tr><td>NORMAL mutex เท่านั้น</td><td>interpose แค่ <code>pthread_mutex_lock</code> / <code>trylock</code> / <code>unlock</code> · ไม่รองรับ condvar, <code>timedlock</code>, rwlock, semaphore, process-shared mutex</td></tr>
     <tr><td>โปรแกรมที่ใช้ condvar</td><td>เตือนเรื่องเจ้าของ mutex ไม่ตรงครั้งเดียว และอาจตรวจไม่เจอ deadlock ที่ผ่าน mutex ตัวนั้น (ไม่รายงานปลอม)</td></tr>
+    <tr><td>ไม่ตรวจ livelock / starvation</td><td>thread ที่วน <code>trylock</code> แล้วปล่อยคืนยังวิ่งอยู่ ไม่มีใครค้างรอ จึงไม่มี wait edge และไม่มี cycle ให้เจอ</td></tr>
     <tr><td>ต้อง dynamic link</td><td>static binary ไม่มีรายงานเลย เพราะ <code>LD_PRELOAD</code> ไม่มีผล</td></tr>
     <tr><td>หลาย cycle พร้อมกัน</td><td>stderr ดิบมีครบทุกวง (สูงสุด 16 ต่อรอบ) แต่หน้านี้วาดแค่วงสุดท้าย</td></tr>
     <tr><td>detection ไม่ใช่ prevention</td><td>บอกว่าค้าง<strong>ที่ไหน</strong> ไม่ได้ทำให้ไม่ค้าง · ส่วนที่เตือนก่อนค้างมีแค่ <code>[LOCK ORDER INVERSION]</code> (อยู่ใน stderr ดิบ หน้านี้ไม่วาดเป็นภาพ)</td></tr>

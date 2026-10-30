@@ -855,7 +855,7 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
         <div class="kicker reveal">Limits &amp; early warning</div>
         <h2 class="reveal" style="--d:1">What it can and cannot do</h2>
         <div class="limits">
-            <div class="panel reveal" style="--d:2"><span class="tag red">LIMIT</span><h3>Linux, normal mutex</h3><p>Linux programs only. No condition variables, rwlock or semaphore.</p></div>
+            <div class="panel reveal" style="--d:2"><span class="tag red">LIMIT</span><h3>Linux, normal mutex</h3><p>Linux programs only. No condition variables, rwlock or semaphore. No livelock.</p></div>
             <div class="panel reveal" style="--d:3"><span class="tag red">LIMIT</span><h3>Finds it after</h3><p>A deadlock is found after it happens. It does not stop it.</p></div>
             <div class="panel next reveal" style="--d:4"><span class="tag green">ALSO</span><h3>Warns early</h3><p>Two locks taken in opposite orders → warning before a deadlock.</p></div>
         </div>

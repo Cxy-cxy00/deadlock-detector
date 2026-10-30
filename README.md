@@ -326,6 +326,9 @@ bash tests/run_demo.sh --no-pause # รันรวดเดียว — exit 0
 - **ไม่รองรับ** condition variable · `pthread_mutex_timedlock` · rwlock · semaphore ·
   recursive mutex (ล็อกซ้ำจะนับเป็นครั้งเดียว) · process-shared mutex · static binary ·
   `fork()` แบบไม่ `exec` (TID ที่ cache ไว้จะผิด)
+- **ไม่ตรวจ livelock / starvation** — thread ที่วน `trylock` แล้วปล่อยคืนยังวิ่งอยู่ ไม่มีใครค้างรอ
+  จึงไม่มี wait edge และไม่มี cycle ให้เจอ (`trylock` ไม่ลง waits และไม่จดลำดับการล็อก)
+  การบอกว่า "งานไม่คืบหน้า" ต้องรู้ความหมายของโปรแกรม ซึ่ง library ทั่วไปไม่รู้
 - **โปรแกรมที่ใช้ condition variable** — `pthread_cond_wait` ปล่อย/ล็อก mutex คืนภายใน glibc
   โดยไม่ผ่านเครื่องมือ ตารางจึงจดเจ้าของ mutex ผิดคนเป็นช่วง ๆ ผลคือ:
   เตือน `ปลด mutex ที่ตารางจดว่า ... ถืออยู่` **ครั้งเดียว** (ที่เหลือดูได้ด้วย `DD_VERBOSE=1`) และ
