@@ -51,6 +51,7 @@ $ timeout 5s env LD_PRELOAD="$PWD/build/libdetect.so" ./build/bank
 | ไม่ต้องแก้โค้ด | โปรแกรมเป้าหมายไม่ต้องแก้ ไม่ต้อง compile ใหม่ |
 | ใช้กับ binary อื่นได้ | Linux/glibc dynamic binary · glibc ≥ 2.34 ไม่ต้องมี libpthread แยก · ผ่าน smoke test กับโปรแกรมอื่น (`ls`, `git`, `make`, `gcc`) แต่ยังไม่รับรองทุกแอป |
 | ชี้บรรทัดที่ผิด | บอกตำแหน่งใน source ได้ถ้าโปรแกรมเป้าหมาย build ด้วย `-g` เป็น PIE และมี `addr2line` |
+| เตือนก่อนค้าง | สอง mutex ถูกล็อกสลับลำดับกัน → `[LOCK ORDER INVERSION]` ทั้งที่โปรแกรมยังไม่ค้าง ([ดูด้านล่าง](#เตือนก่อนค้าง-lock-order-inversion)) |
 
 ## มันแทรกตัวอยู่ตรงไหน
 

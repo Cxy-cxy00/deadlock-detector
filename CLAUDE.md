@@ -15,7 +15,7 @@ An `LD_PRELOAD` library (`build/libdetect.so`) that interposes `pthread_mutex_lo
 
 ```bash
 make                  # build/libdetect.so + all test programs (must build with no warnings)
-make regress          # bash tests/run_regress.sh — edge cases (robust, errcheck, longcycle, condvar, trace); exit 0 = all pass
+make regress          # bash tests/run_regress.sh — edge cases (robust, errcheck, longcycle, condvar, trace, lockorder); exit 0 = all pass
 make demo             # bash tests/run_demo.sh — presentation demo, steps 1–4 with real pass/fail checks
 bash tests/run_demo.sh --no-pause   # same, non-interactive (exit 0 = all steps pass); add --smoke for step 5
 make bench            # tests/run_bench.sh -> writes tests/logs/bench.txt
@@ -41,8 +41,8 @@ Environment variables read by the library: `DD_VERBOSE=1` (debug log incl. table
 ## Architecture (data flow across `src/`)
 
 1. **`interpose.c`** — wrappers resolve the real functions via `dlsym(RTLD_NEXT)` (from the constructor; failure → `abort()`, never pretend the lock succeeded). Order per lock: `wait_begin` → real lock (the thread blocks here on deadlock) → `wait_end` (always, even on error) → `acquired` (on `rc == 0` or `EOWNERDEAD`). Unlock records `released` **before** the real unlock. Caller PC is captured with `__builtin_return_address(0)` inside the wrapper.
-2. **`state.c`** — fixed-size arrays `waits[]` (one row per waiting thread) and `holds[]` (one row per held mutex), guarded by one mutex taken through `real_mutex_lock`. `released` only removes the row if the caller is the recorded holder (non-owner unlock → warn once, keep owner).
-3. **`detector.c`** — a constructor starts a detector thread that polls every `DD_CHECK_INTERVAL_MS` (500 ms). It works even when every target thread is stuck because it never touches the target's mutexes.
+2. **`state.c`** — fixed-size arrays `waits[]` (one row per waiting thread) and `holds[]` (one row per held mutex), guarded by one mutex taken through `real_mutex_lock`. `released` only removes the row if the caller is the recorded holder (non-owner unlock → warn once, keep owner). `wait_begin` also records lock-order pairs (held → requested) in a fixed open-addressing hash (`DD_MAX_ORDER_PAIRS`, filled to 3/4, never deleted); finding the reverse pair queues a `dd_inversion_t` (`DD_MAX_INVERSIONS`). Trylock records no pairs.
+3. **`detector.c`** — a constructor starts a detector thread that polls every `DD_CHECK_INTERVAL_MS` (500 ms). It works even when every target thread is stuck because it never touches the target's mutexes. Each round it takes queued inversions **before** snapshotting the graph, skips those whose two mutexes are in a current deadlock cycle (so `bank` prints only `[DEADLOCK DETECTED]`), and prints the rest as `[LOCK ORDER INVERSION]`; the destructor flushes the queue so short-lived programs still get the warning.
 4. **`graph.c`** — snapshot the tables under the state lock, build edges `waiter → holder`. Out-degree is ≤ 1 (a thread blocks on one mutex), so cycle search is a chain-walking white/gray/black DFS that finds **all** cycles in one pass (cap `DD_MAX_CYCLES` = 16; cycles longer than `DD_MAX_CYCLE_LEN` = 64 are marked `partial` and must never be drawn as closed). Detector dedups cycles by thread set against the previous round.
 5. **`report.c`** — prints the report and writes DOT. `file:line` comes from `dladdr` (subtract `dli_fbase`) + `addr2line` via `popen`; correct only for PIE / `-g` targets, otherwise falls back to `at pc 0x…`.
 6. **`trace.c`** — optional timeline for the playground. `DD_TRACING()` checks a hidden fd inline to keep the disabled cost near zero. It `unsetenv("DD_TRACE")` in the constructor because popen'd `addr2line` inherits `LD_PRELOAD` and would otherwise truncate the file.
