@@ -716,7 +716,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         <div class="note-strip reveal" style="--d:8"><span>One lock at a time → <b>max one arrow out</b> → just follow the arrows.</span><span class="chip a">finds every loop · up to 16</span></div>
     </div>
     <div class="foot"><span class="spk spk-c" data-spk="C">Speaker C · นายชญานิน เอี่ยมสกุล · 6730300094</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span class="on">3 Check</span><span>4 Report</span></div><span class="num"><b>09</b> / 16</span></div>
-    <aside class="notes">[Speaker C — นายชญานิน เอี่ยมสกุล · 0:55 · 101 words] We use a wait-for graph. Each circle is a thread. An arrow goes from the waiting thread. It points to the thread holding the lock. Thread 1 locks Alice. Thread 2 locks Bob. Thread 1 wants Bob. So we draw an arrow to Thread 2. Thread 2 wants Alice. So we draw an arrow back. Now the arrows make a loop. This circular wait is a deadlock. A thread waits for only one lock at a time. So each circle has at most one arrow out. To find a loop, we just follow the arrows. Now ___ will explain the report.</aside>
+    <aside class="notes">[Speaker C — นายชญานิน เอี่ยมสกุล · 0:30 · 54 words] We use a wait-for graph. Each circle is a thread. An arrow means, "I am waiting for you." Thread 1 waits for Thread 2. Thread 2 waits for Thread 1. The arrows make a loop. That loop is the deadlock. To find it, we just follow the arrows. Now ___ will explain the report.</aside>
 </section>
 
 <!-- 10 STEP 4 — REPORT -->
