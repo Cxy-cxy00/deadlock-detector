@@ -1,13 +1,13 @@
 # Speaker Notes — Deadlock Detector
 
-Total 7:48 (5:58 presenting + 1:50 demo). Pace: about 110 words per minute.
+Total 8:18 (6:28 presenting + 1:50 demo). Pace: about 110 words per minute.
 Speakers are labelled **A–E**. In the slides, the label is in the footer. The notes are only in this file.
 
 | Speaker | Slides | Before the demo | After the demo | Presenting time |
 |---|---|---|---|---|
 | **A** — นายภูตะวัน ทรัพย์เกิด 6730300884 | 1–4 · title, problem, Coffman, goal · 15 · summary | 1:23 | 0:25 | **1:48** |
 | **B** — นายศุภวิชญ์ ไชยานุศักดิ์ 6730300591 | 5–7 · big picture, LD_PRELOAD, tables | 1:20 | — | **1:20** |
-| **C** — นายชญานิน เอี่ยมสกุล 6730300094 | 8–9 · detector thread, wait-for graph | 0:55 | — | **0:55** |
+| **C** — นายชญานิน เอี่ยมสกุล 6730300094 | 8–9 · detector thread, wait-for graph | 1:25 | — | **1:25** |
 | **D** — นายธรรศธรณ์ เจียมตน 6730300779 | 10 · report, 13 · results | 0:40 | 0:40 | **1:20** |
 | **E** — นายพัฒนเดช มะหิเมือง 6730300850 | 11 · testing, 14 · limits | 0:20 | 0:15 | **0:35** |
 
@@ -40,11 +40,11 @@ Step one: catch. A mutex is like a door lock. Only one thread can hold it. LD_PR
 ### Slide 7 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Step 2 — Record — 0:30 (53 words)
 Step two: record. The holds table shows who holds each lock. The waits table shows who waits for which lock. Why a fixed size? We cannot use malloc here. Malloc uses locks inside. So it would call our code again. That makes an endless loop. Next, Chayanin shows how we find the loop.
 
-### Slide 8 · Speaker C (นายชญานิน เอี่ยมสกุล) · Step 3 — Detector Thread — 0:25 (46 words)
-Step three is check. Our library starts its own thread. We call it the detector. It wakes up every 500 milliseconds. It copies the tables and looks for a loop. It never uses the program's locks. So it still works when the program is stuck.
+### Slide 8 · Speaker C (นายชญานิน เอี่ยมสกุล) · Step 3 — Detector Thread — 0:38 (69 words)
+Step three is check. Our library starts its own thread. We call it the detector. It wakes up every 500 milliseconds. It copies the two tables and looks for a loop. Why a separate thread? When a deadlock happens, the program's threads are all stuck. They cannot tell us anything. But the detector never uses the program's locks. So it is never stuck. It can still check and report.
 
-### Slide 9 · Speaker C (นายชญานิน เอี่ยมสกุล) · Step 3 — Wait-for Graph — 0:30 (54 words)
-We use a wait-for graph. Each circle is a thread. An arrow means, "I am waiting for you." Thread 1 waits for Thread 2. Thread 2 waits for Thread 1. The arrows make a loop. That loop is the deadlock. To find it, we just follow the arrows. Now ___ will explain the report.
+### Slide 9 · Speaker C (นายชญานิน เอี่ยมสกุล) · Step 3 — Wait-for Graph — 0:47 (86 words)
+We use a wait-for graph. Each circle is a thread. An arrow means, "I am waiting for you." Thread 1 wants Bob, but Thread 2 holds Bob. So Thread 1 points to Thread 2. Thread 2 wants Alice, so it points back. Now the arrows make a loop. That loop is the deadlock. A thread waits for only one lock at a time. So each circle has only one arrow out. To find a loop, we just follow the arrows. Now ___ will explain the report.
 
 ### Slide 10 · Speaker D (นายธรรศธรณ์ เจียมตน) · Step 4 — Report — 0:40 (71 words)
 Step four is report. This is real output. It says: deadlock detected, two threads in a loop. 514 and 513 are thread IDs from Linux. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint shows the fix. Always lock in the same order. Now ___ will show how we tested.
