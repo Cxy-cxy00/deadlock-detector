@@ -504,7 +504,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
     <div class="team">
         <div class="reveal" style="--d:4"><b>นายศุภวิชญ์ ไชยานุศักดิ์</b><span>6730300591</span></div>
         <div class="reveal" style="--d:5"><b>นายชญานิน เอี่ยมสกุล</b><span>6730300094</span></div>
-        <div class="reveal" style="--d:6"><b>พัฒนเดช มะหิเมือง</b><span>6730300850</span></div>
+        <div class="reveal" style="--d:6"><b>นายพัฒนเดช มะหิเมือง</b><span>6730300850</span></div>
         <div class="reveal" style="--d:7"><b>นายธรรศธรณ์ เจียมตน</b><span>6730300779</span></div>
         <div class="reveal" style="--d:8"><b>นายภูตะวัน ทรัพย์เกิด</b><span>6730300884</span></div>
     </div>
@@ -785,8 +785,8 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
             <div class="panel reveal" style="--d:6"><small>MAKE REGRESS</small>Each test catches its bug if we remove the fix.</div>
         </div>
     </div>
-    <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E</span><span class="num"><b>11</b> / 16</span></div>
-    <aside class="notes">[Speaker E · 0:40 · 73 words] Some tests must deadlock. Bank and sample webapp have two threads. Cycle3 has three threads. Two pairs has two loops at once. One must never deadlock. Lockorder must only warn. We also test hard cases. One has seventy threads in a single loop. We use a barrier, not sleep. So the deadlock happens every time. Each test catches its bug if we remove the fix. Now let us show you the real thing.</aside>
+    <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E · นายพัฒนเดช มะหิเมือง · 6730300850</span><span class="num"><b>11</b> / 16</span></div>
+    <aside class="notes">[Speaker E — นายพัฒนเดช มะหิเมือง · 0:20 · 39 words] We tested three kinds of programs. Some must deadlock, with two, three, or seventy threads. Some must never deadlock. One must only warn. We use a barrier, not sleep, so the deadlock happens every time. Let us show you.</aside>
 </section>
 
 <!-- =========================================================
@@ -805,10 +805,10 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
             <div class="reveal" style="--d:5"><b>4</b><p>same lock order → <span class="green">finishes, no report</span></p><code>no_deadlock → exit 0</code></div>
         </div>
     </div>
-    <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E</span><span class="num"><b>12</b> / 16</span></div>
-    <aside class="notes">[Speaker E · 1:50 · demo] If time is short, skip step 3.
+    <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E · นายพัฒนเดช มะหิเมือง · 6730300850</span><span class="num"><b>12</b> / 16</span></div>
+    <aside class="notes">[Speaker E — นายพัฒนเดช มะหิเมือง · 1:50 · demo] If time is short, skip step 3.
 STEP 1 — type: timeout 3 ./build/bank — say: This is the bank program, with no tool. It stops. There is no message at all. Exit code 124 means timeout stopped it.
-STEP 2 — type: timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank — say: Same command. We only add LD_PRELOAD. Now we get a report. Look at lines 65, 70, 89 and 94.
+STEP 2 — type: timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank — say: Same command. We only add LD_PRELOAD. It still hangs, but now we know why. Look at lines 65, 70, 89 and 94.
 STEP 3 — type: DD_DOT_OUT=cycle.dot timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank; dot -Tpng cycle.dot -o cycle.png — say: We can save the loop as a picture. Red arrows mean waiting.
 STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock — say: This version locks in the same order. It always locks Alice before Bob. It finishes with exit code 0. There is no report. So there is no false alarm.</aside>
 </section>
@@ -860,8 +860,8 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
             <div class="panel next reveal" style="--d:4"><span class="tag green">ALSO</span><h3>Warns early</h3><p>Two locks taken in opposite orders → warning before a deadlock.</p></div>
         </div>
     </div>
-    <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E</span><span class="num"><b>14</b> / 16</span></div>
-    <aside class="notes">[Speaker E · 0:15 · 28 words] Now, the limits. It works only on Linux, with normal mutex locks. It finds a deadlock after it happens. But it also warns early about opposite lock orders.</aside>
+    <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E · นายพัฒนเดช มะหิเมือง · 6730300850</span><span class="num"><b>14</b> / 16</span></div>
+    <aside class="notes">[Speaker E — นายพัฒนเดช มะหิเมือง · 0:15 · 28 words] Now, the limits. It works only on Linux, with normal mutex locks. It finds a deadlock after it happens. But it also warns early about opposite lock orders.</aside>
 </section>
 
 <!-- 15 SUMMARY -->
@@ -881,8 +881,8 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
             <div class="reveal" style="--d:7"><b style="color:var(--cyan)">AVOIDANCE</b><span>our Banker's simulator · docs/banker.html</span></div>
         </div>
     </div>
-    <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E</span><span>try it: docs/playground.html</span><span class="num"><b>15</b> / 16</span></div>
-    <aside class="notes">[Speaker E · 0:25 · 46 words] A deadlock is a loop in the wait-for graph. Our tool finds it with no code change. It shows the exact lines. The fix: lock in the same order. Our early warning helps you do this. Detect, prevent, avoid — we used all three ideas from class.</aside>
+    <div class="foot"><span class="spk spk-e" data-spk="E">Speaker E · นายพัฒนเดช มะหิเมือง · 6730300850</span><span>try it: docs/playground.html</span><span class="num"><b>15</b> / 16</span></div>
+    <aside class="notes">[Speaker E — นายพัฒนเดช มะหิเมือง · 0:25 · 46 words] A deadlock is a loop in the wait-for graph. Our tool finds it with no code change. It shows the exact lines. The fix: lock in the same order. Our early warning helps you do this. Detect, prevent, avoid — we used all three ideas from class.</aside>
 </section>
 
 <!-- 16 THANK YOU / Q&A -->
@@ -896,7 +896,7 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
     <div class="team">
         <div class="reveal" style="--d:3"><b>นายศุภวิชญ์ ไชยานุศักดิ์</b><span>6730300591</span></div>
         <div class="reveal" style="--d:4"><b>นายชญานิน เอี่ยมสกุล</b><span>6730300094</span></div>
-        <div class="reveal" style="--d:5"><b>พัฒนเดช มะหิเมือง</b><span>6730300850</span></div>
+        <div class="reveal" style="--d:5"><b>นายพัฒนเดช มะหิเมือง</b><span>6730300850</span></div>
         <div class="reveal" style="--d:6"><b>นายธรรศธรณ์ เจียมตน</b><span>6730300779</span></div>
         <div class="reveal" style="--d:7"><b>นายภูตะวัน ทรัพย์เกิด</b><span>6730300884</span></div>
     </div>

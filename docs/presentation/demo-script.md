@@ -26,7 +26,7 @@ timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank; echo "exit=$?"
 
 > Same command.
 > We only add LD_PRELOAD.
-> Now we get a report.
+> It still hangs, but now we know why.
 > Look at lines 65, 70, 89 and 94.
 
 ---
