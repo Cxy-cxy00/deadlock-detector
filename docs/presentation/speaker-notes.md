@@ -1,7 +1,7 @@
 # Speaker Notes — Deadlock Detector
 
 Total 8:13 (6:23 presenting + 1:50 demo). Pace: about 110 words per minute.
-Speakers are labelled **A–E**. In the slides, the label is in the footer, and **N** shows these notes.
+Speakers are labelled **A–E**. In the slides, the label is in the footer. The notes are only in this file.
 
 | Speaker | Slides | Before the demo | After the demo | Presenting time |
 |---|---|---|---|---|
