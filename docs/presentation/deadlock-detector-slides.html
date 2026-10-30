@@ -589,7 +589,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
     </div>
     <div class="foot"><span class="spk spk-b" data-spk="B">Speaker B · นายศุภวิชญ์ ไชยานุศักดิ์ · 6730300591</span><span class="num"><b>05</b> / 16</span></div>
-    <aside class="notes">[Speaker B — นายศุภวิชญ์ ไชยานุศักดิ์ · 0:20 · 34 words] Thank you. I'm Frank. Now, how does our tool work? It has four steps. One: catch every lock call. Two: record who holds and who waits. Three: check for a loop. Four: report it.</aside>
+    <aside class="notes">[Speaker B — นายศุภวิชญ์ ไชยานุศักดิ์ · 0:20 · 35 words] Thank you. I'm Frank. Our tool is one small library: libdetect.so. It has four steps. One: catch every lock call. Two: record who holds and who waits. Three: check for a loop. Four: report it.</aside>
 </section>
 
 <!-- 06 STEP 1 — CATCH (LD_PRELOAD) -->
@@ -626,7 +626,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
     </div>
     <div class="foot"><span class="spk spk-b" data-spk="B">Speaker B · นายศุภวิชญ์ ไชยานุศักดิ์ · 6730300591</span><div class="steps"><span class="on">1 Catch</span><span>2 Record</span><span>3 Check</span><span>4 Report</span></div><span class="num"><b>06</b> / 16</span></div>
-    <aside class="notes">[Speaker B — นายศุภวิชญ์ ไชยานุศักดิ์ · 0:30 · 52 words] Step one: catch. First, a mutex is a lock. Only one thread can hold it. LD_PRELOAD tells Linux to load our library first. So our function runs before the real lock. It writes down, "waiting." It calls the real lock. Then it writes down, "got it." We catch lock, trylock, and unlock.</aside>
+    <aside class="notes">[Speaker B — นายศุภวิชญ์ ไชยานุศักดิ์ · 0:30 · 55 words] Step one: catch. A mutex is like a door lock. Only one thread can hold it. LD_PRELOAD is a Linux setting. It loads our library first. So our function runs before the real lock. It writes down, "waiting." It calls the real lock. Then it writes down, "got it." We catch lock, trylock, and unlock.</aside>
 </section>
 
 <!-- 07 STEP 2 — RECORD -->
