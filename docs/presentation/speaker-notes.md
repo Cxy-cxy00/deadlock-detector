@@ -73,10 +73,10 @@ Run from a path with no spaces (for example `~/dd`), or LD_PRELOAD will not load
 ## Part 3 — After the Demo
 
 ### Slide 13 · Speaker D · Results — 0:40 (73 words)
-Here are the results. Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. That means no false alarm. We ran bank and sample webapp twenty times each. It found the deadlock every time. But the tool has a cost. One thread: lock plus unlock is about 32 times slower. Use it to find bugs. Do not leave it on.
+Here are the results. Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. That means no false alarm. We ran bank and sample webapp twenty times each. It found the deadlock every time. But the tool has a cost. One thread: lock plus unlock is about 31 times slower. Use it to find bugs. Do not leave it on.
 
-### Slide 14 · Speaker E · Limits & Next Steps — 0:15 (26 words)
-Our tool has limits. It only sees normal mutex locks. It finds a deadlock after it happens. Next, we want to warn before it happens.
+### Slide 14 · Speaker E · Limits & Early Warning — 0:15 (27 words)
+Our tool has limits. It only sees normal mutex locks. It finds a deadlock after it happens. But it also warns early about opposite lock orders.
 
 ### Slide 15 · Speaker E · Summary — 0:25 (44 words)
 To sum up. A deadlock is a loop in the wait-for graph. Our tool finds it without changing the code. It shows the exact lines. The fix is simple: lock in the same order. Detect, prevent, avoid — we used all three ideas from class.

@@ -51,7 +51,7 @@
 - **การออกแบบเครื่องมือครบ 4 ขั้น:** ดักจับด้วย LD_PRELOAD → จดลงตาราง → detector หาวง → พิมพ์รายงาน
 - **การทดสอบ:** โปรแกรมทดสอบ, การใช้ barrier แทน sleep, regression test
 - **ผลลัพธ์:** ตารางผลรัน, ตรวจเจอ 20/20 รอบ, overhead
-- **ข้อจำกัดและงานต่อ:** lock-order inversion ที่ยังไม่ได้ทำ
+- **ข้อจำกัดและการเตือนล่วงหน้า:** lock-order inversion (เตือนเมื่อสอง lock ถูกล็อกสลับลำดับ)
 - **สรุป:** แนวคิดจากบทเรียน, Banker's simulator, หน้า playground
 
 ## 2. แผน Demo (1:50 นาที)
@@ -209,12 +209,12 @@ The text below says what each slide must cover. Write the final wording with the
 --- PART C: AFTER THE DEMO (results + summary) ---
 13. Results — test table from README (bank, no_deadlock, sample_webapp, cycle3, two_pairs:
     without vs with LD_PRELOAD). It found the deadlock in 20 of 20 runs for bank and
-    sample_webapp. Cost per lock + unlock: 1 thread 2.3 → 72.8 ns (×31.7);
-    4 threads, 1 shared lock 38.7 → 296.1 ns (×7.7).
+    sample_webapp. Cost per lock + unlock: 1 thread 2.3 → 72.1 ns (×31.3);
+    4 threads, 1 shared lock 39.9 → 313.5 ns (×7.9).
     Takeaway: good for finding bugs. Too slow to leave on all the time. 0:40
-14. Limits & Next Steps — only normal mutex locks (no condition variables, rwlock, semaphore).
+14. Limits & Early Warning — only normal mutex locks (no condition variables, rwlock, semaphore).
     It finds a deadlock after it happens. It does not stop it.
-    Next step: warn about a bad lock order before a deadlock happens. 0:15
+    Also: it warns early when two locks are taken in opposite orders (lock-order inversion). 0:15
 15. Summary — 3 key points of the whole talk:
     (1) a deadlock is a loop in the wait-for graph,
     (2) our tool finds it with no code change and shows the exact lines,

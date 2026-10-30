@@ -766,7 +766,8 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
             <div class="panel tcol edge reveal" style="--d:4"><h3 class="amber">Hard cases</h3><ul>
                 <li>robust<small>lock owner died</small></li>
                 <li>errcheck<small>wrong thread unlocks</small></li>
-                <li>longcycle<small>70 threads in one loop</small></li></ul></div>
+                <li>longcycle<small>70 threads in one loop</small></li>
+                <li>lockorder<small>opposite order, no deadlock → warning</small></li></ul></div>
         </div>
         <div class="method">
             <div class="panel reveal" style="--d:5"><small>PTHREAD_BARRIER, NOT SLEEP</small>The deadlock happens every time.</div>
@@ -819,36 +820,37 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
                 <tr><td>cycle3</td><td class="red">hangs</td><td class="green">report: 3 threads</td></tr>
                 <tr><td>two_pairs</td><td class="red">hangs</td><td class="green">2 reports, 1 per loop</td></tr>
                 <tr><td>no_deadlock</td><td class="green">exit 0</td><td class="green">exit 0, no report</td></tr>
+                <tr><td>lockorder</td><td class="green">exit 0</td><td class="amber">exit 0 + order warning</td></tr>
             </table>
             <div class="rside">
                 <div class="panel stat reveal" style="--d:3"><div class="v">20 / 20</div><div class="k">runs found the deadlock<br>(bank and sample_webapp)</div></div>
                 <div class="panel cost reveal" style="--d:4">
                     <div class="muted"><span>cost per lock + unlock</span></div>
-                    <div><span>1 thread</span><span>2.3 → 72.8 ns <span class="x">×31.7</span></span></div>
-                    <div><span>4 threads, 1 lock</span><span>38.7 → 296.1 ns <span class="x">×7.7</span></span></div>
+                    <div><span>1 thread</span><span>2.3 → 72.1 ns <span class="x">×31.3</span></span></div>
+                    <div><span>4 threads, 1 lock</span><span>39.9 → 313.5 ns <span class="x">×7.9</span></span></div>
                 </div>
             </div>
         </div>
         <div class="takeaway reveal" style="--d:6">Good for finding bugs. <span class="muted">Too slow to leave on all the time.</span></div>
     </div>
     <div class="foot"><span>Deadlock Detector</span><span class="spk spk-d">Speaker D</span><span class="num"><b>13</b> / 16</span></div>
-    <aside class="notes">[Speaker D · 0:40 · 73 words] Here are the results. Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. That means no false alarm. We ran bank and sample webapp twenty times each. It found the deadlock every time. But the tool has a cost. One thread: lock plus unlock is about 32 times slower. Use it to find bugs. Do not leave it on.</aside>
+    <aside class="notes">[Speaker D · 0:40 · 73 words] Here are the results. Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. That means no false alarm. We ran bank and sample webapp twenty times each. It found the deadlock every time. But the tool has a cost. One thread: lock plus unlock is about 31 times slower. Use it to find bugs. Do not leave it on.</aside>
 </section>
 
-<!-- 14 LIMITS & NEXT STEPS -->
+<!-- 14 LIMITS & EARLY WARNING -->
 <section class="slide" data-part="PART 3 · RESULTS">
     <div class="tbar"><div class="dots"><i></i><i></i><i></i></div><span class="path">~/<b>deadlock-detector</b>/README.md</span><span class="part">PART 3 · RESULTS</span></div>
     <div class="content">
-        <div class="kicker reveal">Limits &amp; next steps</div>
-        <h2 class="reveal" style="--d:1">What it cannot do yet</h2>
+        <div class="kicker reveal">Limits &amp; early warning</div>
+        <h2 class="reveal" style="--d:1">What it can and cannot do</h2>
         <div class="limits">
             <div class="panel reveal" style="--d:2"><span class="tag red">LIMIT</span><h3>Normal mutex only</h3><p>No condition variables, rwlock or semaphore.</p></div>
-            <div class="panel reveal" style="--d:3"><span class="tag red">LIMIT</span><h3>Finds it after</h3><p>It finds a deadlock after it happens. It does not stop it.</p></div>
-            <div class="panel next reveal" style="--d:4"><span class="tag amber">NEXT STEP</span><h3>Warn early</h3><p>Warn about a bad lock order before a deadlock happens.</p></div>
+            <div class="panel reveal" style="--d:3"><span class="tag red">LIMIT</span><h3>Finds it after</h3><p>A deadlock is found after it happens. It does not stop it.</p></div>
+            <div class="panel next reveal" style="--d:4"><span class="tag green">ALSO</span><h3>Warns early</h3><p>Two locks taken in opposite orders → warning before a deadlock.</p></div>
         </div>
     </div>
     <div class="foot"><span>Deadlock Detector</span><span class="spk spk-e">Speaker E</span><span class="num"><b>14</b> / 16</span></div>
-    <aside class="notes">[Speaker E · 0:15 · 26 words] Our tool has limits. It only sees normal mutex locks. It finds a deadlock after it happens. Next, we want to warn before it happens.</aside>
+    <aside class="notes">[Speaker E · 0:15 · 27 words] Our tool has limits. It only sees normal mutex locks. It finds a deadlock after it happens. But it also warns early about opposite lock orders.</aside>
 </section>
 
 <!-- 15 SUMMARY -->
@@ -864,7 +866,7 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
         </div>
         <div class="dpa">
             <div class="reveal" style="--d:5"><b class="amber">DETECTION</b><span>this tool</span></div>
-            <div class="reveal" style="--d:6"><b class="green">PREVENTION</b><span>same lock order (demo step 4)</span></div>
+            <div class="reveal" style="--d:6"><b class="green">PREVENTION</b><span>same lock order (demo step 4) + early warning</span></div>
             <div class="reveal" style="--d:7"><b style="color:var(--cyan)">AVOIDANCE</b><span>our Banker's simulator · docs/banker.html</span></div>
         </div>
     </div>
