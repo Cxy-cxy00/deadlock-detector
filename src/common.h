@@ -11,6 +11,13 @@
 #define DD_MAX_MUTEXES      1024
 #define DD_MAX_HELD_PER_THR 32
 
+/* ---- lock-order inversion (state.c) ----
+ * คู่ลำดับ (ถือ A แล้วขอ B) ที่จำได้ตลอดอายุโปรแกรม — hash ต้องเป็นกำลังของ 2
+ * คำเตือนที่รอ detector thread มาพิมพ์ได้พร้อมกันสูงสุดกี่ชุด
+ */
+#define DD_MAX_ORDER_PAIRS  4096
+#define DD_MAX_INVERSIONS   16
+
 /* คาบเวลาที่ detector thread ตื่นมาตรวจ wait-for graph (มิลลิวินาที) */
 #define DD_CHECK_INTERVAL_MS 500
 

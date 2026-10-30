@@ -59,14 +59,55 @@ static int seen_before(const dd_cycle_t *c) {
     return 0;
 }
 
-/* ตรวจหนึ่งรอบ: สร้างกราฟ -> หา cycle ทุกวง -> รายงานเฉพาะวงใหม่
+/* ---- lock-order inversion ----
+ * state.c จดคำเตือนเข้าคิวตั้งแต่ใน lock path  detector แค่หยิบมาพิมพ์
+ * static เพราะมีแต่ detector thread (หรือ destructor หลัง thread หยุดแล้ว) ที่แตะ
+ */
+static dd_inversion_t g_inv[DD_MAX_INVERSIONS];
+
+static int cycle_has_mutex(const dd_cycle_t *c, dd_mutex_t m) {
+    for (size_t i = 0; i < c->len; i++)
+        if (c->mutexes[i] == m) return 1;
+    return 0;
+}
+
+/* inversion ที่ mutex ทั้งคู่อยู่ในวง deadlock รอบนี้อยู่แล้ว = ค้างไปแล้วจริง
+ * รายงาน [DEADLOCK DETECTED] บอกมากกว่าอยู่แล้ว จึงไม่เตือนซ้ำ
+ * (bank.c ได้รายงานหน้าตาเดิม ไม่มีคำเตือนแทรก)
+ */
+static int covered_by_cycle(const dd_inversion_t *v, const dd_cycle_t *cs, size_t n) {
+    for (size_t k = 0; k < n; k++)
+        if (cycle_has_mutex(&cs[k], v->seen.first) && cycle_has_mutex(&cs[k], v->seen.second))
+            return 1;
+    return 0;
+}
+
+static void report_inversions(size_t k, const dd_cycle_t *cs, size_t n) {
+    for (size_t i = 0; i < k; i++) {
+        if (covered_by_cycle(&g_inv[i], cs, n)) {
+            dd_dbgf("detector: inversion อยู่ในวง deadlock แล้ว ไม่เตือนซ้ำ\n");
+            continue;
+        }
+        dd_report_inversion(&g_inv[i]);
+    }
+}
+
+/* ตรวจหนึ่งรอบ: หยิบ inversion -> สร้างกราฟ -> หา cycle ทุกวง -> รายงานเฉพาะวงใหม่
  * คืน 1 ถ้า "ตอนนี้มี deadlock" แม้จะเป็นวงเดิมที่รายงานไปแล้วก็ตาม
  */
 int dd_detector_check_once(void) {
-    size_t n, fresh = 0;
+    size_t n, k, fresh = 0;
+
+    /* หยิบ inversion "ก่อน" ถ่าย snapshot กราฟ — inversion ที่เกิดจาก deadlock จริง
+     * มีวงอยู่แล้วตั้งแต่ตอนที่ถูกจด และวง deadlock ไม่มีวันหายเอง snapshot ที่ถ่ายทีหลังจึงเห็นวงนั้นแน่
+     * ถ้าสลับลำดับ inversion อาจเข้าคิวหลัง snapshot แล้วถูกพิมพ์ทั้งที่เป็นส่วนของ deadlock
+     */
+    k = dd_state_take_inversions(g_inv, DD_MAX_INVERSIONS);
 
     dd_graph_build();
     n = dd_graph_find_cycles(g_cur, DD_MAX_CYCLES);
+
+    report_inversions(k, g_cur, n);
 
     for (size_t i = 0; i < n; i++) {
         int old = seen_before(&g_cur[i]);
@@ -130,14 +171,6 @@ void dd_detector_stop(void) {
     g_running = 0;
 }
 
-/* ---- ขั้น 11: เตือนล่วงหน้าแบบ prevention ----
- * เก็บคู่ลำดับ (A ก่อน B) ที่เคยเห็น ถ้าวันหนึ่งเจอ (B ก่อน A) = lock-order inversion
- * ยังไม่ค้างแต่เสี่ยง  เป็นส่วนที่เอาไว้เทียบ prevention กับ detection ตอนนำเสนอ
- */
-void dd_detector_note_order(dd_tid_t t, dd_mutex_t prev, dd_mutex_t next) {
-    (void)t; (void)prev; (void)next;  /* TODO ขั้น 11 */
-}
-
 /* ---- จุดเริ่มและจุดจบของ libdetect.so ---- */
 
 __attribute__((constructor))
@@ -151,5 +184,12 @@ static void dd_startup(void) {
 __attribute__((destructor))
 static void dd_shutdown(void) {
     dd_detector_stop();
+
+    /* โปรแกรมที่จบเร็วกว่าคาบเดียวของ detector จะไม่ทันได้พิมพ์คำเตือนในคิว
+     * (lock-order inversion มีประโยชน์ที่สุดกับโปรแกรมที่ "ยังไม่ค้าง" ซึ่งก็คือโปรแกรมที่จบเองนี่แหละ)
+     * detector thread หยุดแล้ว ตรงนี้จึงใช้ g_inv ได้คนเดียว  ไม่มี deadlock ให้กรองเพราะโปรแกรมจบได้
+     */
+    report_inversions(dd_state_take_inversions(g_inv, DD_MAX_INVERSIONS), NULL, 0);
+
     dd_state_fini();
 }

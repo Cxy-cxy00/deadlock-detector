@@ -38,6 +38,39 @@ static pthread_mutex_t g_lock = PTHREAD_MUTEX_INITIALIZER;
 static int g_warned_waits = 0;
 static int g_warned_holds = 0;
 static int g_warned_owner = 0;
+static int g_warned_order = 0;
+static int g_warned_inv   = 0;
+
+/* ===== ลำดับการล็อก (lock-order inversion) =====
+ * ทุกครั้งที่ thread จะ "รอ" mutex ตัวใหม่ขณะถือตัวอื่นอยู่ จดคู่ (ตัวที่ถือ -> ตัวที่ขอ)
+ * ถ้าวันหนึ่งเจอคู่กลับทาง = lock-order inversion  ตอนนี้อาจยังไม่ค้าง
+ * แต่ถ้าสองลำดับนี้วิ่งพร้อมกันเมื่อไหร่จะ deadlock แบบ bank.c  เป็นการเตือนแบบ prevention
+ *
+ * จดที่ wait_begin ไม่ใช่ acquired: ตอน deadlock จริง lock ตัวที่สองไม่มีวันได้มา
+ * ไม่จด trylock: trylock ไม่มีวันค้าง โค้ดแบบ "ลองแล้วถอย" จึงไม่ใช่ความเสี่ยง
+ *
+ * ตารางนี้โตตามจำนวน "คู่" ที่เคยเห็นตลอดอายุโปรแกรม ไม่ใช่สถานะ ณ ตอนนี้แบบ waits/holds
+ * จึงใช้ hash แบบ open addressing (ยังเป็น static array ห้าม malloc เหมือนเดิม)
+ * ไม่ลบคู่ทิ้งเลย จึงไม่ต้องจัดการ tombstone
+ *
+ * ในนี้พิมพ์รายงานไม่ได้ (ต้องเรียก addr2line ซึ่งช้าและ malloc) จึงฝากเข้าคิว g_inv
+ * ให้ detector thread มาหยิบไปพิมพ์ (dd_state_take_inversions)
+ */
+_Static_assert((DD_MAX_ORDER_PAIRS & (DD_MAX_ORDER_PAIRS - 1)) == 0,
+               "DD_MAX_ORDER_PAIRS ต้องเป็นกำลังของ 2");
+
+/* ใส่ได้แค่ 3/4 ของตาราง ไม่งั้น linear probing ยาวขึ้นเรื่อย ๆ ใน lock path */
+#define DD_ORDER_LIMIT (DD_MAX_ORDER_PAIRS / 4 * 3)
+
+typedef struct {
+    dd_order_t ord;
+    int        used;
+} order_slot_t;
+
+static order_slot_t   g_order[DD_MAX_ORDER_PAIRS];
+static size_t         g_norder = 0;
+static dd_inversion_t g_inv[DD_MAX_INVERSIONS];
+static size_t         g_ninv = 0;
 
 /* ---- ล็อก/ปลดล็อกตาราง ----
  * ถ้า real_* ยังเป็น NULL แปลว่าอยู่ช่วงบูตที่ยังมี thread เดียว การไม่ล็อกจึงไม่อันตราย
@@ -64,6 +97,65 @@ static size_t find_hold(dd_mutex_t m) {
     for (size_t i = 0; i < g_nholds; i++)
         if (g_holds[i].mutex == m) return i;
     return g_nholds;
+}
+
+/* ---- ตารางคู่ลำดับ (ต้องถือ g_lock อยู่) ---- */
+
+static size_t order_hash(dd_mutex_t a, dd_mutex_t b) {
+    /* ที่อยู่ของ mutex เรียงกัน 8 byte ขึ้นไป บิตล่างเป็นศูนย์ ตัดทิ้งก่อนผสม */
+    uintptr_t x = ((uintptr_t)a >> 3) * 0x9E3779B1u ^ ((uintptr_t)b >> 3);
+    return (size_t)(x ^ (x >> 16)) & (DD_MAX_ORDER_PAIRS - 1);
+}
+
+/* คืนช่องของคู่ (a, b) ถ้ามีแล้ว หรือช่องว่างช่องแรกที่ควรใส่ */
+static size_t order_find(dd_mutex_t a, dd_mutex_t b) {
+    size_t i = order_hash(a, b);
+    for (size_t k = 0; k < DD_MAX_ORDER_PAIRS; k++) {
+        if (!g_order[i].used) return i;
+        if (g_order[i].ord.first == a && g_order[i].ord.second == b) return i;
+        i = (i + 1) & (DD_MAX_ORDER_PAIRS - 1);
+    }
+    return DD_MAX_ORDER_PAIRS;   /* เต็มทั้งตาราง — ไม่เกิดเพราะหยุดใส่ที่ DD_ORDER_LIMIT */
+}
+
+/* t ถือ h อยู่และกำลังจะรอ m — จดคู่ (h -> m) ถ้าเพิ่งเห็นครั้งแรก
+ * แล้วเช็คว่าเคยมีคู่กลับทาง (m -> h) หรือยัง  คู่ใหม่ใส่ได้ครั้งเดียว คำเตือนจึงไม่ซ้ำ
+ */
+static void note_order(dd_tid_t t, const dd_hold_t *h, dd_mutex_t m, dd_site_t site) {
+    size_t i = order_find(h->mutex, m);
+    if (i == DD_MAX_ORDER_PAIRS || g_order[i].used) return;   /* เคยเห็นคู่นี้แล้ว */
+    if (g_norder >= DD_ORDER_LIMIT) {
+        if (!g_warned_order) {
+            g_warned_order = 1;
+            dd_logf("[dd] WARNING: ตารางลำดับการล็อกเต็ม (%d คู่) — คู่ใหม่จะไม่ถูกตรวจ "
+                    "lock-order inversion\n", DD_ORDER_LIMIT);
+        }
+        return;
+    }
+    g_order[i].used = 1;
+    g_order[i].ord.tid         = t;
+    g_order[i].ord.first       = h->mutex;
+    g_order[i].ord.second      = m;
+    g_order[i].ord.first_site  = h->site;
+    g_order[i].ord.second_site = site;
+    g_norder++;
+
+    size_t j = order_find(m, h->mutex);
+    if (j == DD_MAX_ORDER_PAIRS || !g_order[j].used) return;   /* ลำดับยังไม่ขัดกัน */
+
+    if (g_ninv >= DD_MAX_INVERSIONS) {
+        if (!g_warned_inv) {
+            g_warned_inv = 1;
+            dd_logf("[dd] WARNING: คิวคำเตือน lock-order inversion เต็ม (%d) — "
+                    "บางคู่จะไม่ถูกรายงาน\n", DD_MAX_INVERSIONS);
+        }
+        return;
+    }
+    g_inv[g_ninv].seen    = g_order[j].ord;
+    g_inv[g_ninv].reverse = g_order[i].ord;
+    g_ninv++;
+    dd_dbgf("order: tid %lu ถือ %p แล้วขอ %p สวนกับ tid %lu — inversion\n",
+            t, h->mutex, m, g_order[j].ord.tid);
 }
 
 /* ---- พิมพ์ตารางทั้งใบ (ต้องถือ g_lock อยู่) ----
@@ -117,6 +209,12 @@ void dd_state_fini(void) {
 
 void dd_state_wait_begin(dd_tid_t t, dd_mutex_t m, dd_site_t site) {
     dd_state_lock();
+
+    /* ทุกตัวที่ t ถืออยู่ตอนนี้ "มาก่อน" m — ข้ามตัวเดียวกัน (ล็อกซ้ำ ไม่ใช่ลำดับ) */
+    for (size_t k = 0; k < g_nholds; k++)
+        if (g_holds[k].holder == t && g_holds[k].mutex != m)
+            note_order(t, &g_holds[k], m, site);
+
     size_t i = find_wait(t);
     if (i == g_nwaits) {
         if (g_nwaits >= DD_MAX_THREADS) {
@@ -229,4 +327,18 @@ int dd_state_holder_of(dd_mutex_t m, dd_tid_t *out) {
     if (i == g_nholds) return 0;
     if (out) *out = g_holds[i].holder;
     return 1;
+}
+
+size_t dd_state_take_inversions(dd_inversion_t *out, size_t max) {
+    size_t n;
+
+    dd_state_lock();
+    n = (g_ninv < max) ? g_ninv : max;
+    for (size_t i = 0; i < n; i++)
+        out[i] = g_inv[i];
+    for (size_t i = n; i < g_ninv; i++)    /* ที่เหลือ (ถ้า max เล็กกว่าคิว) เลื่อนขึ้นมาข้างหน้า */
+        g_inv[i - n] = g_inv[i];
+    g_ninv -= n;
+    dd_state_unlock();
+    return n;
 }

@@ -22,6 +22,21 @@ typedef struct {
     dd_site_t  site;        /* บรรทัดที่ล็อกสำเร็จ */
 } dd_hold_t;
 
+/* หนึ่งรายการ = "thread หนึ่งตัวถือ first อยู่แล้วขอ second" (ลำดับการล็อกที่เคยเห็น) */
+typedef struct {
+    dd_tid_t   tid;
+    dd_mutex_t first;
+    dd_mutex_t second;
+    dd_site_t  first_site;   /* บรรทัดที่ได้ first มา */
+    dd_site_t  second_site;  /* บรรทัดที่ขอ second */
+} dd_order_t;
+
+/* lock-order inversion = ลำดับที่เคยเห็น กับลำดับกลับทางที่เพิ่งเจอ */
+typedef struct {
+    dd_order_t seen;
+    dd_order_t reverse;
+} dd_inversion_t;
+
 /* เตรียม/คืนตาราง — เรียกจาก constructor/destructor ของ libdetect.so */
 void dd_state_init(void);
 void dd_state_fini(void);
@@ -44,5 +59,10 @@ void dd_state_dump(void);
 size_t dd_state_waits (const dd_wait_t **out);   /* คืนจำนวน + ชี้ไปที่ array */
 size_t dd_state_holds (const dd_hold_t **out);
 int    dd_state_holder_of(dd_mutex_t m, dd_tid_t *out);  /* 1 = เจอ, 0 = ว่าง */
+
+/* ดึง lock-order inversion ที่รอพิมพ์ออกมาไม่เกิน max ชุด แล้วลบออกจากคิว
+ * ล็อกตารางเอง ไม่ต้องคร่อม — เรียกจาก detector thread เท่านั้น
+ */
+size_t dd_state_take_inversions(dd_inversion_t *out, size_t max);
 
 #endif /* DD_STATE_H */
