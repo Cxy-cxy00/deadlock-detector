@@ -9,7 +9,7 @@ Speakers are labelled **A–E** (names to be filled in later). In the slides, th
 | **B** — นายศุภวิชญ์ ไชยานุศักดิ์ 6730300591 | 5–7 · big picture, LD_PRELOAD, tables | 1:20 | — | **1:20** |
 | **C** — นายชญานิน เอี่ยมสกุล 6730300094 | 8–9 · detector thread, wait-for graph | 1:20 | — | **1:20** |
 | **D** | 10 · report, 13 · results | 0:40 | 0:40 | **1:20** |
-| **E** | 11 · testing, 14 · limits, 15 · summary | 0:20 | 0:40 | **1:00** |
+| **E** — นายพัฒนเดช มะหิเมือง 6730300850 | 11 · testing, 14 · limits, 15 · summary | 0:20 | 0:40 | **1:00** |
 
 Speaker E also runs the live demo (slide 12, 1:50). The demo is not counted as presenting time.
 
@@ -49,14 +49,14 @@ We use a wait-for graph. Each circle is a thread. An arrow goes from the waiting
 ### Slide 10 · Speaker D · Step 4 — Report — 0:40 (71 words)
 Step four is report. This is real output. It says: deadlock detected, two threads in a loop. 514 and 513 are thread IDs from Linux. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint shows the fix. Always lock in the same order. Now ___ will show how we tested.
 
-### Slide 11 · Speaker E · How We Tested — 0:20 (39 words)
+### Slide 11 · Speaker E (นายพัฒนเดช มะหิเมือง) · How We Tested — 0:20 (39 words)
 We tested three kinds of programs. Some must deadlock, with two, three, or seventy threads. Some must never deadlock. One must only warn. We use a barrier, not sleep, so the deadlock happens every time. Let us show you.
 
 ---
 
 ## Part 2 — Live Demo
 
-### Slide 12 · Speaker E · Live Demo — 1:50
+### Slide 12 · Speaker E (นายพัฒนเดช มะหิเมือง) · Live Demo — 1:50
 If time is short, skip step 3 (slide 10 already shows the output).
 
 | Step | Type | Say |
@@ -75,10 +75,10 @@ Run from a path with no spaces (for example `~/dd`), or LD_PRELOAD will not load
 ### Slide 13 · Speaker D · Results — 0:40 (72 words)
 Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. No false alarm. Lockorder only gives a warning. In twenty runs, it found the deadlock every time. But the tool has a cost. Each lock and unlock costs about 70 nanoseconds more. That is 31 times slower. Use it for testing only. Now ___ will talk about the limits.
 
-### Slide 14 · Speaker E · Limits & Early Warning — 0:15 (28 words)
+### Slide 14 · Speaker E (นายพัฒนเดช มะหิเมือง) · Limits & Early Warning — 0:15 (28 words)
 Now, the limits. It works only on Linux, with normal mutex locks. It finds a deadlock after it happens. But it also warns early about opposite lock orders.
 
-### Slide 15 · Speaker E · Summary — 0:25 (46 words)
+### Slide 15 · Speaker E (นายพัฒนเดช มะหิเมือง) · Summary — 0:25 (46 words)
 A deadlock is a loop in the wait-for graph. Our tool finds it with no code change. It shows the exact lines. The fix: lock in the same order. Our early warning helps you do this. Detect, prevent, avoid — we used all three ideas from class.
 
 ### Slide 16 · Everyone · Thank You / Q&A
