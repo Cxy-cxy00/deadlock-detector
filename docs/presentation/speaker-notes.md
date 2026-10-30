@@ -5,15 +5,15 @@ Speakers are labelled **A–E**. In the slides, the label is in the footer, and 
 
 | Speaker | Slides | Before the demo | After the demo | Presenting time |
 |---|---|---|---|---|
-| **A** — นายภูตะวัน ทรัพย์เกิด 6730300884 | 1–4 · title, problem, Coffman, goal | 1:23 | — | **1:23** |
+| **A** — นายภูตะวัน ทรัพย์เกิด 6730300884 | 1–4 · title, problem, Coffman, goal · 15 · summary | 1:23 | 0:25 | **1:48** |
 | **B** — นายศุภวิชญ์ ไชยานุศักดิ์ 6730300591 | 5–7 · big picture, LD_PRELOAD, tables | 1:20 | — | **1:20** |
 | **C** — นายชญานิน เอี่ยมสกุล 6730300094 | 8–9 · detector thread, wait-for graph | 1:20 | — | **1:20** |
 | **D** — นายธรรศธรณ์ เจียมตน 6730300779 | 10 · report, 13 · results | 0:40 | 0:40 | **1:20** |
-| **E** — นายพัฒนเดช มะหิเมือง 6730300850 | 11 · testing, 14 · limits, 15 · summary | 0:20 | 0:40 | **1:00** |
+| **E** — นายพัฒนเดช มะหิเมือง 6730300850 | 11 · testing, 14 · limits | 0:20 | 0:15 | **0:35** |
 
 Speaker E also runs the live demo (slide 12, 1:50). The demo is not counted as presenting time.
 
-Order: A → B → C → D → E → (E: demo) → D → E → everyone (Q&A)
+Order: A → B → C → D → E → (E: demo) → D → E → A → everyone (Q&A)
 
 ---
 
@@ -78,7 +78,7 @@ Without our tool, every deadlock test just hangs. With our tool, we get a report
 ### Slide 14 · Speaker E (นายพัฒนเดช มะหิเมือง) · Limits & Early Warning — 0:15 (28 words)
 Now, the limits. It works only on Linux, with normal mutex locks. It finds a deadlock after it happens. But it also warns early about opposite lock orders.
 
-### Slide 15 · Speaker E (นายพัฒนเดช มะหิเมือง) · Summary — 0:25 (46 words)
+### Slide 15 · Speaker A (นายภูตะวัน ทรัพย์เกิด) · Summary — 0:25 (46 words)
 A deadlock is a loop in the wait-for graph. Our tool finds it with no code change. It shows the exact lines. The fix: lock in the same order. Our early warning helps you do this. Detect, prevent, avoid — we used all three ideas from class.
 
 ### Slide 16 · Everyone · Thank You / Q&A
