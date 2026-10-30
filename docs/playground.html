@@ -412,7 +412,8 @@ make playground</code></pre>
     <tr><td>โปรแกรมที่ใช้ condvar</td><td>เตือนเรื่องเจ้าของ mutex ไม่ตรงครั้งเดียว และอาจตรวจไม่เจอ deadlock ที่ผ่าน mutex ตัวนั้น (ไม่รายงานปลอม)</td></tr>
     <tr><td>ต้อง dynamic link</td><td>static binary ไม่มีรายงานเลย เพราะ <code>LD_PRELOAD</code> ไม่มีผล</td></tr>
     <tr><td>หลาย cycle พร้อมกัน</td><td>stderr ดิบมีครบทุกวง (สูงสุด 16 ต่อรอบ) แต่หน้านี้วาดแค่วงสุดท้าย</td></tr>
-    <tr><td>detection ไม่ใช่ prevention</td><td>บอกว่าค้าง<strong>ที่ไหน</strong> ไม่ได้ทำให้ไม่ค้าง</td></tr>
+    <tr><td>detection ไม่ใช่ prevention</td><td>บอกว่าค้าง<strong>ที่ไหน</strong> ไม่ได้ทำให้ไม่ค้าง · ส่วนที่เตือนก่อนค้างมีแค่ <code>[LOCK ORDER INVERSION]</code> (อยู่ใน stderr ดิบ หน้านี้ไม่วาดเป็นภาพ)</td></tr>
+    <tr><td>lock-order inversion</td><td>เฉพาะคู่ 2 mutex (ถือ A ขอ B สวนกับ ถือ B ขอ A) · วงลำดับ 3 ตัวขึ้นไปไม่เตือนล่วงหน้า · ไม่นับ <code>trylock</code> · โปรแกรมที่ใช้ condvar อาจได้คำเตือนผิด</td></tr>
     <tr><td>ชี้บรรทัดต้องมี <code>-g</code> + PIE</td><td>ไม่มี debug info หรือเป็น non-PIE ก็ยังบอกได้ว่าใครค้างกับใคร แต่แสดงเป็น <code>pc</code> ดิบ</td></tr>
     <tr><td>ไม่รองรับ recursive mutex</td><td>thread เดิมล็อกตัวเดิมซ้ำจะนับเป็นครั้งเดียว</td></tr>
     <tr><td>timeline ทีละขั้น</td><td>เก็บเหตุการณ์ lock ได้ 5,000 ตัวแรก โปรแกรมที่ล็อกถี่กว่านั้นจะเห็นแค่ช่วงต้น (รอบตรวจของ detector ยังครบทุกรอบ)</td></tr>

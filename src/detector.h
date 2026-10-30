@@ -12,12 +12,10 @@
 void dd_detector_start(void);
 void dd_detector_stop(void);
 
-/* ตรวจรอบเดียว: build graph -> find cycle -> report. คืน 1 ถ้าเจอ deadlock */
-int dd_detector_check_once(void);
-
-/* เตือนล่วงหน้าแบบ prevention: thread ล็อกสองตัวสลับลำดับกับที่เคยเห็น
- * (ยังไม่ค้าง แต่เสี่ยง) — เรียกจาก dd_state_acquired
+/* ตรวจรอบเดียว: พิมพ์ lock-order inversion ที่รออยู่ -> build graph -> find cycle -> report
+ * คืน 1 ถ้าเจอ deadlock
+ * (การจดลำดับการล็อกอยู่ใน state.c ตอน wait_begin — ที่นี่แค่หยิบคำเตือนไปพิมพ์)
  */
-void dd_detector_note_order(dd_tid_t t, dd_mutex_t prev, dd_mutex_t next);
+int dd_detector_check_once(void);
 
 #endif /* DD_DETECTOR_H */

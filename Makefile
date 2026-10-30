@@ -15,7 +15,7 @@ DEPS     := $(OBJ:.o=.d)
 LIB      := $(BUILD)/libdetect.so
 TESTS    := $(BUILD)/bank $(BUILD)/no_deadlock $(BUILD)/sample_webapp $(BUILD)/two_pairs \
             $(BUILD)/cycle3 $(BUILD)/condvar $(BUILD)/robust \
-            $(BUILD)/errcheck $(BUILD)/longcycle
+            $(BUILD)/errcheck $(BUILD)/longcycle $(BUILD)/lockorder
 BENCH    := $(BUILD)/bench
 
 .PHONY: all tests clean demo playground sample_webapp bench regress
@@ -43,7 +43,7 @@ $(BENCH): tests/bench.c | $(BUILD)
 bench: $(LIB) $(BENCH)
 	bash tests/run_bench.sh
 
-# regression test ของกรณีขอบที่เคยแก้ (robust / errcheck / cycle ยาว / condvar)
+# regression test ของกรณีขอบที่เคยแก้ (robust / errcheck / cycle ยาว / condvar / lock order)
 regress: all
 	bash tests/run_regress.sh
 

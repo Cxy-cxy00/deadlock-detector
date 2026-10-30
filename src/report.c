@@ -229,6 +229,29 @@ void dd_report_cycle(const dd_cycle_t *c) {
     dd_logf("  Hint : acquire locks in a consistent global order\n\n");
 }
 
+/* ---- คำเตือน lock-order inversion ----
+ * ใช้คำว่า locked / then ไม่ใช้ holds / waiting และไม่มีบรรทัด "Thread <tid>" เดี่ยว ๆ
+ * เพราะ tools/playground.py อ่านบรรทัดรูปแบบนั้นเป็นส่วนของรายงาน deadlock
+ * และไม่มีคำว่า WARNING เพราะ tests/run_regress.sh นับคำนั้นเป็นคำเตือนเรื่องตาราง
+ */
+void dd_report_inversion(const dd_inversion_t *v) {
+    dd_order_t o[2];
+
+    if (v == NULL) return;
+    o[0] = v->seen;       /* copy ออกมาก่อน เพราะ print_line เขียนชื่อไฟล์ลงใน site */
+    o[1] = v->reverse;
+
+    dd_logf("\n[LOCK ORDER INVERSION] 2 mutexes locked in opposite orders\n\n");
+    for (int k = 0; k < 2; k++) {
+        dd_logf("  Order %d (thread %lu): mutex %p -> mutex %p\n",
+                k + 1, o[k].tid, o[k].first, o[k].second);
+        print_line("locked", o[k].first, &o[k].first_site);
+        print_line("then", o[k].second, &o[k].second_site);
+    }
+    dd_logf("\n  Risk : no deadlock yet — if both orders run at the same time, they will deadlock\n");
+    dd_logf("  Hint : acquire locks in a consistent global order\n\n");
+}
+
 
 /* ---- export เป็น Graphviz ----
  * วาดแบบ resource allocation graph ตามตำรา:
