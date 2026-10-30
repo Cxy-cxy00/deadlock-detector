@@ -31,11 +31,11 @@ A deadlock needs four conditions. First, mutual exclusion: one thread per lock. 
 ### Slide 4 · Speaker A (นายภูตะวัน ทรัพย์เกิด) · Our Goal — 0:15 (25 words)
 Our goal: find the deadlock. Show the threads, locks, and code lines. No code change. No rebuild. Now Frank will show how our tool works.
 
-### Slide 5 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Big Picture — 0:20 (34 words)
-Thank you. I'm Frank. Now, how does our tool work? It has four steps. One: catch every lock call. Two: record who holds and who waits. Three: check for a loop. Four: report it.
+### Slide 5 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Big Picture — 0:20 (35 words)
+Thank you. I'm Frank. Our tool is one small library: libdetect.so. It has four steps. One: catch every lock call. Two: record who holds and who waits. Three: check for a loop. Four: report it.
 
-### Slide 6 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Step 1 — Catch — 0:30 (52 words)
-Step one: catch. First, a mutex is a lock. Only one thread can hold it. LD_PRELOAD tells Linux to load our library first. So our function runs before the real lock. It writes down, "waiting." It calls the real lock. Then it writes down, "got it." We catch lock, trylock, and unlock.
+### Slide 6 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Step 1 — Catch — 0:30 (55 words)
+Step one: catch. A mutex is like a door lock. Only one thread can hold it. LD_PRELOAD is a Linux setting. It loads our library first. So our function runs before the real lock. It writes down, "waiting." It calls the real lock. Then it writes down, "got it." We catch lock, trylock, and unlock.
 
 ### Slide 7 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Step 2 — Record — 0:30 (53 words)
 Step two: record. The holds table shows who holds each lock. The waits table shows who waits for which lock. Why a fixed size? We cannot use malloc here. Malloc uses locks inside. So it would call our code again. That makes an endless loop. Next, Chayanin shows how we find the loop.
