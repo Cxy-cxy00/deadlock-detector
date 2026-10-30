@@ -29,10 +29,10 @@ Look at this bank program. Two threads move money. Thread 1 moves money from Ali
 A deadlock needs four conditions. First, mutual exclusion: one thread per lock. Second, hold and wait: each holds one, wants another. Third, no preemption: nobody can take a lock away. Fourth, circular wait: they wait in a loop. Remove one, and there is no deadlock. Our tool looks for the loop.
 
 ### Slide 4 · Speaker A (นายภูตะวัน ทรัพย์เกิด) · Our Goal — 0:15 (25 words)
-Our goal: find the deadlock. Show the threads, locks, and code lines. No code change. No rebuild. Now Frank will show how our tool works.
+Our goal: find the deadlock. Show the threads, locks, and code lines. No code change. No rebuild. Now Suphavitch will show how our tool works.
 
 ### Slide 5 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Big Picture — 0:20 (35 words)
-Thank you. I'm Frank. Our tool is one small library: libdetect.so. It has four steps. One: catch every lock call. Two: record who holds and who waits. Three: check for a loop. Four: report it.
+Thank you. I'm Suphavitch. Our tool is one small library: libdetect.so. It has four steps. One: catch every lock call. Two: record who holds and who waits. Three: check for a loop. Four: report it.
 
 ### Slide 6 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Step 1 — Catch — 0:30 (55 words)
 Step one: catch. A mutex is like a door lock. Only one thread can hold it. LD_PRELOAD is a Linux setting. It loads our library first. So our function runs before the real lock. It writes down, "waiting." It calls the real lock. Then it writes down, "got it." We catch lock, trylock, and unlock.
