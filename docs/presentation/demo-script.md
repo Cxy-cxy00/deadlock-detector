@@ -48,6 +48,7 @@ DD_DOT_OUT=cycle.dot timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank 
 timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock; echo "exit=$?"
 ```
 
+> Now, the fixed version.
 > This version locks in the same order.
 > It always locks Alice before Bob.
 > It finishes with exit code 0.

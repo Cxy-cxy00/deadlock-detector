@@ -802,7 +802,7 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
 STEP 1 — type: timeout 3 ./build/bank — say: This is the bank program, with no tool. It just hangs. There is no message at all. Exit code 124 means timeout stopped it.
 STEP 2 — type: timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank — say: Same command. We only add LD_PRELOAD. It still hangs, but now we know why. Look at lines 65, 70, 89 and 94.
 STEP 3 — type: DD_DOT_OUT=cycle.dot timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank; dot -Tpng cycle.dot -o cycle.png — say: We can save the loop as a picture. Red arrows mean waiting.
-STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock — say: This version locks in the same order. It always locks Alice before Bob. It finishes with exit code 0. There is no report. So there is no false alarm.</aside>
+STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock — say: Now, the fixed version. This version locks in the same order. It always locks Alice before Bob. It finishes with exit code 0. There is no report. So there is no false alarm.</aside>
 </section>
 
 <!-- =========================================================

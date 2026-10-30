@@ -108,7 +108,7 @@ timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock; echo "exit=$
 **จะเห็น:** รันราว 2 วินาที → `PASS: ...` → `exit=0` ไม่มี `[DEADLOCK DETECTED]`
 
 **พูด:**
-> This version locks in the same order. It always locks Alice before Bob. It finishes with exit code 0. There is no report. So there is no false alarm.
+> Now, the fixed version. This version locks in the same order. It always locks Alice before Bob. It finishes with exit code 0. There is no report. So there is no false alarm.
 
 จบแล้วกลับไปสไลด์ 13 ให้ Speaker D (นายธรรศธรณ์ เจียมตน) พูดผลลัพธ์ต่อ
 
@@ -130,7 +130,7 @@ bash tests/run_demo.sh
 | 1 | `1) รันโปรแกรมโอนเงินธรรมดา` | `[t1] lock alice` … นิ่ง 3 วินาที | This is the bank program, with no tool… | `[ผ่าน] ค้างจนหมดเวลา (exit 124)` |
 | 2 | `2) คำสั่งเดิมเป๊ะ แค่เติม LD_PRELOAD ข้างหน้า` | `[DEADLOCK DETECTED]` + บรรทัด 65/70/89/94 และสคริปต์ `grep` บรรทัด `pthread_mutex_lock` ใน `bank.c` มาวางให้เทียบ | Same command. We only add LD_PRELOAD… (ชี้บรรทัดที่สคริปต์แสดงเทียบได้เลย) | `[ผ่าน] stderr มี [DEADLOCK DETECTED]` |
 | 3 | `3) export wait-for graph เป็นภาพ` | เนื้อไฟล์ `cycle.dot` (ตัวหนังสือ) + `-> เขียน cycle.png แล้ว` | We can save the loop as a picture… | `[ผ่าน] ได้ไฟล์ cycle.dot และไม่ว่าง` |
-| 4 | `4) เวอร์ชันที่แก้แล้ว — ล็อกตามลำดับสากล` | รัน ~2 วินาที → `PASS` | This version locks in the same order… | `[ผ่าน] จบเองไม่ค้าง (exit 0)` |
+| 4 | `4) เวอร์ชันที่แก้แล้ว — ล็อกตามลำดับสากล` | รัน ~2 วินาที → `PASS` | Now, the fixed version. This version locks in the same order… | `[ผ่าน] จบเองไม่ค้าง (exit 0)` |
 
 จบจะขึ้น **"ผ่านทุกขั้น"**
 
