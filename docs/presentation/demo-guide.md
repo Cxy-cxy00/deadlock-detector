@@ -85,7 +85,7 @@ exit=124
 (เลข thread และที่อยู่ mutex เปลี่ยนทุกครั้งที่รัน — ปกติ · เลขบรรทัด 65 / 70 / 89 / 94 ต้องตรงเสมอ)
 
 **พูด:**
-> Same command. We only add LD_PRELOAD. Now we get a report. Look at lines 65, 70, 89 and 94.
+> Same command. We only add LD_PRELOAD. It still hangs, but now we know why. Look at lines 65, 70, 89 and 94.
 
 ### ขั้น 3 — วาดภาพวง (ประมาณ 25 วินาที · **ถ้าเวลาเกินให้ข้าม**)
 

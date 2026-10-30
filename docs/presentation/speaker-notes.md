@@ -62,7 +62,7 @@ If time is short, skip step 3 (slide 10 already shows the output).
 | Step | Type | Say |
 |---|---|---|
 | 1 | `timeout 3 ./build/bank` | This is the bank program, with no tool. It stops. There is no message at all. Exit code 124 means timeout stopped it. |
-| 2 | `timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank` | Same command. We only add LD_PRELOAD. Now we get a report. Look at lines 65, 70, 89 and 94. |
+| 2 | `timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank` | Same command. We only add LD_PRELOAD. It still hangs, but now we know why. Look at lines 65, 70, 89 and 94. |
 | 3 | `DD_DOT_OUT=cycle.dot timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank; dot -Tpng cycle.dot -o cycle.png` | We can save the loop as a picture. Red arrows mean waiting. |
 | 4 | `timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock` | This version locks in the same order. It always locks Alice before Bob. It finishes with exit code 0. There is no report. So there is no false alarm. Now ___ will show our results. |
 
