@@ -260,6 +260,24 @@ $ timeout 5s env LD_PRELOAD="$PWD/build/libdetect.so" ./build/bank   <span style
   </div>
 
   <p style="font-size:14px;color:var(--muted);margin:0">T1 กับ T2 ค้างอยู่ทั้งคู่ แต่ detector เป็นคนละ thread จึงยังทำงานและรายงานออกมาได้</p>
+
+  <h3 style="margin-top:22px">เตือนก่อนค้าง: lock-order inversion</h3>
+  <p style="font-size:14px;color:var(--muted)">จดทุกคู่ "ถือ A แล้วขอ B" ถ้าเจอคู่กลับทาง "ถือ B แล้วขอ A" = ยังไม่ค้าง แต่ค้างได้ถ้าสองทางวิ่งพร้อมกัน
+  (ถ้าค้างเป็น deadlock ไปแล้วจะเห็นแค่ <code>[DEADLOCK DETECTED]</code> ไม่เตือนซ้ำ)</p>
+  <pre><code>$ timeout 10 env LD_PRELOAD=./build/libdetect.so ./build/lockorder     <span style="color:var(--ok)"># จบเอง exit 0</span>
+
+[LOCK ORDER INVERSION] 2 mutexes locked in opposite orders
+
+  Order 1 (thread 924): mutex 0x5efbf1557060 -> mutex 0x5efbf15570a0
+      locked  mutex 0x5efbf1557060   at lockorder.c:31
+      then    mutex 0x5efbf15570a0   at lockorder.c:32
+  Order 2 (thread 925): mutex 0x5efbf15570a0 -> mutex 0x5efbf1557060
+      locked  mutex 0x5efbf15570a0   at lockorder.c:42
+      then    mutex 0x5efbf1557060   at lockorder.c:43
+
+  Risk : no deadlock yet — if both orders run at the same time, they will deadlock
+  Hint : acquire locks in a consistent global order</code></pre>
+  <p style="font-size:13px;color:var(--muted);margin:-6px 0 0">output จริงจาก <code>tests/logs/phase7_lockorder.txt</code></p>
 </section>
 
 <section>
@@ -284,7 +302,7 @@ $ timeout 5s env LD_PRELOAD="$PWD/build/libdetect.so" ./build/bank   <span style
     <li>ตารางมีขนาดจำกัด (256 thread รอ · 1024 mutex · cycle ยาวสุด 64) เต็มแล้วอาจตรวจไม่เจอ</li>
     <li>บรรทัดในโค้ดต้องมี <code>-g</code> + <code>addr2line</code> · binary non-PIE ยังแสดงเป็น PC</li>
     <li>poll ทุก 500 ms ไม่ใช่ latency guarantee</li>
-    <li>lock-order inversion ยังไม่ได้ทำ</li>
+    <li>deadlock ตรวจแบบ detection (เจอหลังค้าง) · lock-order inversion เตือนล่วงหน้าได้เฉพาะคู่ 2 mutex ไม่นับ trylock และโปรแกรมที่ใช้ condvar อาจได้คำเตือนผิด</li>
     <li>path ของ <code>libdetect.so</code> ห้ามมีช่องว่างหรือ <code>:</code> (ld.so แยก <code>LD_PRELOAD</code> ตรงนั้น)</li>
   </ul>
   <p style="font-size:14px;color:var(--muted);margin:0">รายละเอียดและหลักฐานอยู่ใน README หัวข้อ Limitations และ <code>tests/logs/</code></p>
@@ -298,7 +316,7 @@ $ timeout 5s env LD_PRELOAD="$PWD/build/libdetect.so" ./build/bank   <span style
     <tr><td>1</td><td>interpose pthread_mutex_lock / trylock / unlock ด้วย LD_PRELOAD</td><td>dynamic linking</td></tr>
     <tr><td>2</td><td>ตารางสถานะ thread / mutex</td><td>process &amp; thread state</td></tr>
     <tr><td>3</td><td>Wait-for graph + cycle detection</td><td>resource allocation graph</td></tr>
-    <tr><td>4</td><td>Detector thread + ชี้บรรทัด (lock-order inversion ยังไม่ได้ทำ)</td><td>prevention vs detection</td></tr>
+    <tr><td>4</td><td>Detector thread + ชี้บรรทัด + เตือน lock-order inversion</td><td>prevention vs detection</td></tr>
     <tr><td>5</td><td>โปรแกรมทดสอบ + Graphviz + รายงาน</td><td>demo &amp; ข้อจำกัด</td></tr>
   </table>
   </div>

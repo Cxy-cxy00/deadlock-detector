@@ -88,6 +88,33 @@ cycle = circular wait ภายใต้ scope ที่รองรับ (NORM
 
 T1 กับ T2 ค้างอยู่ทั้งคู่ แต่ detector เป็น thread คนละตัวของ library เรา จึงยังทำงานและรายงานออกมาได้
 
+## เตือนก่อนค้าง: lock-order inversion
+
+ทุกครั้งที่ thread จะรอ mutex ตัวใหม่ขณะถือตัวอื่นอยู่ library จดคู่ลำดับไว้ (ถือ A แล้วขอ B)
+ถ้าวันหนึ่งเจอคู่กลับทาง (ถือ B แล้วขอ A) แปลว่าโปรแกรม **ยังไม่ค้างก็จริง แต่ค้างได้** ถ้าสองทางนี้วิ่งพร้อมกัน
+output จริงจาก [`tests/logs/phase7_lockorder.txt`](tests/logs/phase7_lockorder.txt)
+([`tests/lockorder.c`](tests/lockorder.c) ล็อก a→b แล้วค่อย b→a คนละช่วงเวลา จึงจบเองทุกครั้ง)
+
+```console
+$ timeout 10 env LD_PRELOAD=./build/libdetect.so ./build/lockorder     # exit 0
+
+[LOCK ORDER INVERSION] 2 mutexes locked in opposite orders
+
+  Order 1 (thread 924): mutex 0x5efbf1557060 -> mutex 0x5efbf15570a0
+      locked  mutex 0x5efbf1557060   at lockorder.c:31
+      then    mutex 0x5efbf15570a0   at lockorder.c:32
+  Order 2 (thread 925): mutex 0x5efbf15570a0 -> mutex 0x5efbf1557060
+      locked  mutex 0x5efbf15570a0   at lockorder.c:42
+      then    mutex 0x5efbf1557060   at lockorder.c:43
+
+  Risk : no deadlock yet — if both orders run at the same time, they will deadlock
+  Hint : acquire locks in a consistent global order
+```
+
+- จดตอน "จะรอ" (ใน `pthread_mutex_lock`) ไม่ใช่ตอนได้ lock — ตอน deadlock จริง lock ตัวที่สองไม่มีวันได้มา
+- ถ้าคู่นั้นค้างเป็น deadlock ไปแล้ว (เช่น `bank`) จะเห็นแค่ `[DEADLOCK DETECTED]` ไม่เตือนซ้ำ
+- โปรแกรมที่จบเร็วกว่าคาบของ detector ยังได้คำเตือน เพราะ library พิมพ์คิวที่ค้างตอนปิดตัว
+
 ---
 
 ## Scope ที่ทำจริง
@@ -104,12 +131,12 @@ T1 กับ T2 ค้างอยู่ทั้งคู่ แต่ detector
 | export Graphviz (`DD_DOT_OUT`) | ✅ |
 | บันทึกเหตุการณ์ทีละขั้น (`DD_TRACE`) + timeline ในหน้า playground | ✅ (เก็บ 5,000 เหตุการณ์ lock แรก) |
 | หลาย cycle พร้อมกัน: รายงานทุกวงในการตรวจรอบเดียว วงละครั้ง · `.dot` รวมทุกวง | ✅ (สูงสุด 16 วง) |
-| โปรแกรมทดสอบ `bank` / `no_deadlock` / `sample_webapp` / `two_pairs` / `cycle3` | ✅ |
-| regression test `make regress` (robust / errcheck / longcycle / condvar) | ✅ |
+| โปรแกรมทดสอบ `bank` / `no_deadlock` / `sample_webapp` / `two_pairs` / `cycle3` / `lockorder` | ✅ |
+| regression test `make regress` (robust / errcheck / longcycle / condvar / lockorder) | ✅ |
 | `tests/run_demo.sh` ตรวจผลจริงทุกขั้น (exit 0 = ผ่านหมด) | ✅ |
 | ซิมูเลเตอร์ Banker's Algorithm (`docs/banker.html`) | ✅ |
 | หน้าเว็บกดรันโค้ดจริง (`docs/playground.html`) | ✅ |
-| เตือน lock-order inversion ล่วงหน้า | ❌ ยังไม่ได้ทำ |
+| เตือน lock-order inversion ล่วงหน้า (`[LOCK ORDER INVERSION]`) | ✅ เฉพาะคู่ 2 mutex |
 
 ## โครงสร้างไฟล์
 
@@ -118,9 +145,9 @@ src/
   common.h       ค่าคงที่, ชนิดข้อมูลร่วม, dd_logf
   log.c          พิมพ์ข้อความออก stderr โดยไม่ยุ่งกับ stdio ของเป้าหมาย
   interpose.c/h  interpose pthread_mutex_lock/trylock/unlock    — คนที่ 1
-  state.c/h      ตารางสถานะ thread / mutex (ใครถือ ใครรอ)     — คนที่ 2
+  state.c/h      ตารางสถานะ thread / mutex (ใครถือ ใครรอ) + คู่ลำดับการล็อก — คนที่ 2
   graph.c/h      wait-for graph + cycle detection (DFS)        — คนที่ 3
-  detector.c/h   detector thread                               — คนที่ 4
+  detector.c/h   detector thread + พิมพ์คำเตือน lock-order inversion — คนที่ 4
   report.c/h     รายงาน + export Graphviz + map file:line      — คนที่ 5
   trace.c/h      จดเหตุการณ์ทีละขั้นลงไฟล์ (DD_TRACE) ให้หน้า playground เล่นเป็น timeline
 tests/
@@ -134,16 +161,18 @@ tests/
   robust.c       robust mutex ที่เจ้าของตาย (EOWNERDEAD) แล้ว deadlock ผ่านตัวนั้น — ต้องรายงาน
   errcheck.c     unlock โดยคนที่ไม่ใช่เจ้าของ (EPERM) แล้ว deadlock ผ่านตัวนั้น — ต้องรายงาน
   longcycle.c    วงยาว 70 thread — ต้องรายงานเป็น partial path ไม่ปิดวงปลอม
+  lockorder.c    ล็อก a->b แล้วค่อย b->a คนละช่วงเวลา ไม่ค้าง — ต้องเตือน lock-order inversion ครั้งเดียว
   bench.c        วัด overhead (make bench -> tests/logs/bench.txt)
   run_demo.sh    ลำดับขั้นตอน demo ตอนนำเสนอ พร้อมเงื่อนไขผ่าน/ไม่ผ่าน
-  run_regress.sh regression test ของกรณีขอบ (robust / errcheck / longcycle / condvar / trace) — make regress
+  run_regress.sh regression test ของกรณีขอบ (robust / errcheck / longcycle / condvar / trace / lockorder) — make regress
   logs/          ผลรันจริงที่อ้างใน README (env, test matrix, demo)
 docs/
   overview.html    สไลด์/หน้าสรุปโปรเจ็ค (เปิดในเบราว์เซอร์)
   banker.html      ซิมูเลเตอร์ Banker's Algorithm — deadlock avoidance
   playground.html  หน้าเครื่องมือ — แนบไฟล์ C หรือวางโค้ดแล้วกดรันได้จริง
   design.md        บันทึกการออกแบบและข้อจำกัด
-  fix-report.md    รายงานการแก้ Phase 0-5: เจออะไร ทำอะไร หลักฐานอยู่ไหน
+  fix-report.md    รายงานการแก้ Phase 0-7: เจออะไร ทำอะไร หลักฐานอยู่ไหน
+  presentation/    สไลด์นำเสนอภาษาอังกฤษ (HTML + PDF) + บทพูด + แผนนำเสนอ
 tools/
   playground.py    เซิร์ฟเวอร์ท้องถิ่นที่ compile + รันโค้ดให้หน้า playground
 ```
@@ -222,23 +251,29 @@ bash tests/run_demo.sh --no-pause # รันรวดเดียว — exit 0
 | `sample_webapp` | ค้าง exit 124 | exit 124 + `[DEADLOCK DETECTED]` |
 | `cycle3` (วงยาว 3) | ค้าง exit 124 | exit 124 + `3 threads in cycle` (20/20 รอบ, [`phase3_cycle3.txt`](tests/logs/phase3_cycle3.txt)) |
 | `two_pairs` (2 วงพร้อมกัน) | ค้าง exit 124 | exit 124 + รายงาน 2 ครั้ง วงละครั้ง (10/10 รอบ, [`phase3_two_pairs.txt`](tests/logs/phase3_two_pairs.txt)) |
+| `lockorder` (สลับลำดับแต่ไม่ค้าง) | exit 0 | exit 0 + `[LOCK ORDER INVERSION]` 1 ครั้ง ([`phase7_lockorder.txt`](tests/logs/phase7_lockorder.txt)) |
 
 - ความแน่นอน: `bank` แบบ preload ได้รายงาน **20/20** รอบ, `sample_webapp` **20/20** รอบ
   ([`phase1_*_preload_x20.txt`](tests/logs/))
 - `run_demo.sh --no-pause` ผ่านทุกขั้น และคืน exit 1 จริงเมื่อชี้ไปที่ .so ที่ไม่มีอยู่
   ([`phase2_run_demo_*.txt`](tests/logs/))
 - cycle 70 thread รายงานเป็น partial path ไม่ปิดวงปลอม ([`phase2_partial_cycle.txt`](tests/logs/phase2_partial_cycle.txt))
-- `make regress` ผ่านทุกข้อ (robust / errcheck / longcycle / condvar) และแต่ละข้อ **ไม่ผ่าน**
-  เมื่อถอย fix ของข้อนั้นออกชั่วคราว = เทสจับบั๊กได้จริง ([`phase5_regress.txt`](tests/logs/phase5_regress.txt))
+- `make regress` ผ่านทุกข้อ (robust / errcheck / longcycle / condvar / lockorder) และแต่ละข้อ **ไม่ผ่าน**
+  เมื่อถอย fix ของข้อนั้นออกชั่วคราว = เทสจับบั๊กได้จริง ([`phase5_regress.txt`](tests/logs/phase5_regress.txt),
+  [`phase7_regress.txt`](tests/logs/phase7_regress.txt), [`phase7_lockorder.txt`](tests/logs/phase7_lockorder.txt))
+- lock-order inversion ไม่เตือนซ้ำในโปรแกรมที่ค้างจริง: `bank` 10/10 รอบได้ `[DEADLOCK DETECTED]` อย่างเดียว
+  และ `no_deadlock` / `condvar` ไม่มีคำเตือน ([`phase7_lockorder.txt`](tests/logs/phase7_lockorder.txt))
 - overhead (`make bench`, i9-13900H บน WSL2, median 15 รอบ × 1,000,000 คู่ lock+unlock —
   [`bench.txt`](tests/logs/bench.txt))
 
   | กรณี | ไม่มี LD_PRELOAD | มี LD_PRELOAD | เพิ่มขึ้น |
   | --- | --- | --- | --- |
-  | uncontended (1 thread) | 2.3 ns/คู่ | 72.8 ns/คู่ | +70.5 ns (×31.7) |
-  | contended (4 thread, 1 mutex) | 38.7 ns/คู่ | 296.1 ns/คู่ | +257.4 ns (×7.7) |
+  | uncontended (1 thread) | 2.3 ns/คู่ | 72.1 ns/คู่ | +69.8 ns (×31.3) |
+  | contended (4 thread, 1 mutex) | 39.9 ns/คู่ | 313.5 ns/คู่ | +273.6 ns (×7.9) |
 
   ทุก lock/unlock ต้องผ่านตารางที่มี lock ตัวเดียว จึงช้าลงชัดเจน เหมาะกับการ debug ไม่ใช่เปิดทิ้งไว้ใน production
+  การจดลำดับการล็อก (Phase 7) เพิ่มราว 1 ns กรณี 1 thread และราว 5% กรณี contended
+  เทียบ A/B ในรอบเดียวกัน ([`phase7_bench_ab.txt`](tests/logs/phase7_bench_ab.txt))
 
 ## แบ่งงาน
 
@@ -247,7 +282,7 @@ bash tests/run_demo.sh --no-pause # รันรวดเดียว — exit 0
 | 1 | interpose ฟังก์ชัน pthread ด้วย LD_PRELOAD | dynamic linking |
 | 2 | ตารางสถานะ thread / mutex | process & thread state |
 | 3 | wait-for graph + cycle detection | resource allocation graph |
-| 4 | detector thread + ชี้บรรทัด (lock-order inversion ยังไม่ได้ทำ) | prevention vs detection |
+| 4 | detector thread + ชี้บรรทัด + เตือน lock-order inversion | prevention vs detection |
 | 5 | โปรแกรมทดสอบ + Graphviz + รายงาน | demo & ข้อจำกัด |
 
 ## Limitations
@@ -275,7 +310,12 @@ bash tests/run_demo.sh --no-pause # รันรวดเดียว — exit 0
   การหาบรรทัดเรียก `addr2line` ทีละบรรทัด รายงาน cycle ยาว ๆ จึงใช้เวลาหลายวินาที
 - **poll ทุก 500 ms** ไม่ใช่ latency guarantee — รายงานออกมา "ภายหลัง" deadlock เกิด โดยทั่วไปไม่เกินหนึ่งคาบ
   แต่ไม่รับประกัน
-- **ตรวจแบบ detection** (เจอหลังค้างแล้ว) ไม่ใช่ prevention · **lock-order inversion ยังไม่ได้ทำ**
+- **ตรวจ deadlock แบบ detection** (เจอหลังค้างแล้ว) ไม่ได้ป้องกัน — ส่วนที่ "เตือนก่อนค้าง" มีแค่ lock-order inversion
+- **lock-order inversion เฉพาะคู่ 2 mutex** (ถือ A ขอ B สวนกับ ถือ B ขอ A) — ลำดับที่วนผ่าน 3 ตัวขึ้นไป
+  (เช่น `cycle3`: a→b→c→a) ไม่เตือนล่วงหน้า แต่ถ้าค้างจริงยังได้ `[DEADLOCK DETECTED]` ·
+  ไม่นับ `trylock` (ไม่มีวันค้าง) · เตือนตามรูปแบบที่เห็น ไม่ได้พิสูจน์ว่าจะค้างจริง ·
+  โปรแกรมที่ใช้ condition variable อาจได้คำเตือนผิด เพราะตารางจดเจ้าของ mutex ผิดคนเป็นช่วง ๆ ·
+  จำคู่ได้ 3,072 คู่ (3/4 ของ `DD_MAX_ORDER_PAIRS`) เต็มแล้วเตือนครั้งเดียวและหยุดจดคู่ใหม่
 - **path ของ `libdetect.so` ห้ามมีช่องว่างหรือ `:`** — ld.so แยก `LD_PRELOAD` ตรงอักขระพวกนี้
   library จะโหลดไม่ขึ้นแล้ว "ไม่มีรายงาน" แบบเงียบ ๆ
   `run_demo.sh` จึงใช้ path แบบ relative และ `playground.py` แจ้ง error แทนการรัน
