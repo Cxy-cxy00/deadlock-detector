@@ -49,6 +49,7 @@ timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock; echo "exit=$
 ```
 
 > This version locks in the same order.
+> It always locks Alice before Bob.
 > It finishes with exit code 0.
 > There is no report.
 > So there is no false alarm.

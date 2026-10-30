@@ -5,9 +5,9 @@ Speakers are labelled **A–E** (names to be filled in later). In the slides, th
 
 | Speaker | Slides | Before the demo | After the demo | Presenting time |
 |---|---|---|---|---|
-| **A** | 1–4 · title, problem, Coffman, goal | 1:20 | — | **1:20** |
+| **A** — นายภูตะวัน ทรัพย์เกิด 6730300884 | 1–4 · title, problem, Coffman, goal | 1:20 | — | **1:20** |
 | **B** — นายศุภวิชญ์ ไชยานุศักดิ์ 6730300591 | 5–7 · big picture, LD_PRELOAD, tables | 1:20 | — | **1:20** |
-| **C** | 8–9 · detector thread, wait-for graph | 1:20 | — | **1:20** |
+| **C** — นายชญานิน เอี่ยมสกุล 6730300094 | 8–9 · detector thread, wait-for graph | 1:20 | — | **1:20** |
 | **D** | 10 · report, 13 · results | 0:40 | 0:40 | **1:20** |
 | **E** | 11 · testing, 14 · limits, 15 · summary | 0:40 | 0:40 | **1:20** |
 
@@ -19,38 +19,38 @@ Order: A → B → C → D → E → (E: demo) → D → E → everyone (Q&A)
 
 ## Part 1 — Presentation
 
-### Slide 1 · Speaker A · Title — 0:10 (15 words)
+### Slide 1 · Speaker A (นายภูตะวัน ทรัพย์เกิด) · Title — 0:10 (15 words)
 Hello everyone. Our project is the Deadlock Detector. It finds deadlocks without changing the code.
 
-### Slide 2 · Speaker A · The Problem — 0:30 (55 words)
+### Slide 2 · Speaker A (นายภูตะวัน ทรัพย์เกิด) · The Problem — 0:30 (55 words)
 Look at this bank program. Two threads move money. Thread 1 moves money from Alice to Bob. Thread 2 moves money from Bob to Alice. Thread 1 locks Alice first. Thread 2 locks Bob first. Now each one waits for the other. Nobody lets go. The program does not crash. It shows no error. It just stops.
 
-### Slide 3 · Speaker A · Deadlock Basics — 0:25 (45 words)
+### Slide 3 · Speaker A (นายภูตะวัน ทรัพย์เกิด) · Deadlock Basics — 0:25 (45 words)
 A deadlock needs four conditions. First, mutual exclusion: one thread per lock. Second, hold and wait: each holds one, wants another. Third, no preemption: nobody can take a lock away. Fourth, circular wait: they wait in a loop. Remove one, and there is no deadlock.
 
-### Slide 4 · Speaker A · Our Goal — 0:15 (25 words)
-Our goal is simple. Find the deadlock. Show the threads, the locks, and the code lines. Do not change the code. Do not rebuild it.
+### Slide 4 · Speaker A (นายภูตะวัน ทรัพย์เกิด) · Our Goal — 0:15 (25 words)
+Our goal: find the deadlock. Show the threads, locks, and code lines. No code change. No rebuild. Now Frank will show how our tool works.
 
-### Slide 5 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Big Picture — 0:20 (37 words)
-Here is the big picture. Our tool has four steps. First, catch every lock call. Second, record who holds and who waits. Third, check for a loop. Fourth, report it. Each step is one source file.
+### Slide 5 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Big Picture — 0:20 (34 words)
+Thank you. I'm Frank. Now, how does our tool work? It has four steps. One: catch every lock call. Two: record who holds and who waits. Three: check for a loop. Four: report it.
 
-### Slide 6 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Step 1 — Catch — 0:30 (55 words)
-Step one is catch. A mutex is a lock. Only one thread can hold it. LD_PRELOAD tells Linux to load our library first. So our lock function runs before the real one. It notes waiting. Then it calls the real lock. Then it notes got it. We catch three functions: lock, trylock and unlock.
+### Slide 6 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Step 1 — Catch — 0:30 (52 words)
+Step one: catch. First, a mutex is a lock. Only one thread can hold it. LD_PRELOAD tells Linux to load our library first. So our function runs before the real lock. It writes down, "waiting." It calls the real lock. Then it writes down, "got it." We catch lock, trylock, and unlock.
 
-### Slide 7 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Step 2 — Record — 0:30 (51 words)
-Step two is record. We keep two tables. The holds table says who holds each lock. The waits table says who waits for which lock. The tables have a fixed size. Why? We cannot use malloc here. Malloc uses locks inside. That would call our code again, in a loop.
+### Slide 7 · Speaker B (นายศุภวิชญ์ ไชยานุศักดิ์) · Step 2 — Record — 0:30 (53 words)
+Step two: record. The holds table shows who holds each lock. The waits table shows who waits for which lock. Why a fixed size? We cannot use malloc here. Malloc uses locks inside. So it would call our code again. That makes an endless loop. Next, Chayanin shows how we find the loop.
 
-### Slide 8 · Speaker C · Step 3 — Detector Thread — 0:25 (46 words)
+### Slide 8 · Speaker C (นายชญานิน เอี่ยมสกุล) · Step 3 — Detector Thread — 0:25 (46 words)
 Step three is check. Our library starts its own thread. We call it the detector. It wakes up every 500 milliseconds. It copies the tables and looks for a loop. It never uses the program's locks. So it still works when the program is stuck.
 
-### Slide 9 · Speaker C · Step 3 — Wait-for Graph — 0:55 (99 words)
-We use a wait-for graph. Each circle is a thread. An arrow goes from the waiting thread. It points to the thread holding the lock. Thread 1 locks A. Thread 2 locks B. Thread 1 wants B. So we draw an arrow to Thread 2. Thread 2 wants A. So we draw an arrow back. Now the arrows make a loop. A loop means circular wait. That is a deadlock. A thread waits for only one lock at a time. So each circle has at most one arrow out. To find a loop, we just follow the arrows.
+### Slide 9 · Speaker C (นายชญานิน เอี่ยมสกุล) · Step 3 — Wait-for Graph — 0:55 (101 words)
+We use a wait-for graph. Each circle is a thread. An arrow goes from the waiting thread. It points to the thread holding the lock. Thread 1 locks Alice. Thread 2 locks Bob. Thread 1 wants Bob. So we draw an arrow to Thread 2. Thread 2 wants Alice. So we draw an arrow back. Now the arrows make a loop. This circular wait is a deadlock. A thread waits for only one lock at a time. So each circle has at most one arrow out. To find a loop, we just follow the arrows. Now ___ will explain the report.
 
-### Slide 10 · Speaker D · Step 4 — Report — 0:40 (69 words)
-Step four is report. This is the real output. It says: deadlock detected, two threads in a loop. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint tells us how to fix it. Always lock in the same order. We can also save the loop as a picture.
+### Slide 10 · Speaker D · Step 4 — Report — 0:40 (71 words)
+Step four is report. This is real output. It says: deadlock detected, two threads in a loop. 514 and 513 are thread IDs from Linux. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint shows the fix. Always lock in the same order. Now ___ will show how we tested.
 
-### Slide 11 · Speaker E · How We Tested — 0:40 (72 words)
-Some tests must deadlock. Bank and sample webapp have two threads. Cycle3 has three threads. Two pairs has two loops at once. One must never deadlock. Lockorder must only warn. We also test hard cases. One has seventy threads in a single loop. We use a barrier, not sleep. So the deadlock happens every time. Each hard-case test fails if we remove its fix. Now let us show you the real thing.
+### Slide 11 · Speaker E · How We Tested — 0:40 (73 words)
+Some tests must deadlock. Bank and sample webapp have two threads. Cycle3 has three threads. Two pairs has two loops at once. One must never deadlock. Lockorder must only warn. We also test hard cases. One has seventy threads in a single loop. We use a barrier, not sleep. So the deadlock happens every time. Each test catches its bug if we remove the fix. Now let us show you the real thing.
 
 ---
 
@@ -64,7 +64,7 @@ If time is short, skip step 3 (slide 10 already shows the output).
 | 1 | `timeout 3 ./build/bank` | This is the bank program, with no tool. It stops. There is no message at all. Exit code 124 means timeout stopped it. |
 | 2 | `timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank` | Same command. We only add LD_PRELOAD. Now we get a report. Look at lines 65, 70, 89 and 94. |
 | 3 | `DD_DOT_OUT=cycle.dot timeout 3 env LD_PRELOAD=./build/libdetect.so ./build/bank; dot -Tpng cycle.dot -o cycle.png` | We can save the loop as a picture. Red arrows mean waiting. |
-| 4 | `timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock` | This version locks in the same order. It finishes with exit code 0. There is no report. So there is no false alarm. |
+| 4 | `timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock` | This version locks in the same order. It always locks Alice before Bob. It finishes with exit code 0. There is no report. So there is no false alarm. Now ___ will show our results. |
 
 Run from a path with no spaces (for example `~/dd`), or LD_PRELOAD will not load.
 
@@ -73,10 +73,10 @@ Run from a path with no spaces (for example `~/dd`), or LD_PRELOAD will not load
 ## Part 3 — After the Demo
 
 ### Slide 13 · Speaker D · Results — 0:40 (72 words)
-Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. No false alarm. Lockorder only gives a warning. We ran bank and sample webapp twenty times each. It found the deadlock every time. But the tool has a cost. One thread: lock plus unlock is about 31 times slower. Use it to find bugs. Do not leave it on.
+Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. No false alarm. Lockorder only gives a warning. In twenty runs, it found the deadlock every time. But the tool has a cost. Each lock and unlock costs about 70 nanoseconds more. That is 31 times slower. Use it for testing only. Now ___ will talk about the limits.
 
-### Slide 14 · Speaker E · Limits & Early Warning — 0:15 (27 words)
-Our tool has limits. It only sees normal mutex locks. It finds a deadlock after it happens. But it also warns early about opposite lock orders.
+### Slide 14 · Speaker E · Limits & Early Warning — 0:15 (28 words)
+Now, the limits. It works only on Linux, with normal mutex locks. It finds a deadlock after it happens. But it also warns early about opposite lock orders.
 
 ### Slide 15 · Speaker E · Summary — 0:25 (46 words)
 A deadlock is a loop in the wait-for graph. Our tool finds it with no code change. It shows the exact lines. The fix: lock in the same order. Our early warning helps you do this. Detect, prevent, avoid — we used all three ideas from class.
