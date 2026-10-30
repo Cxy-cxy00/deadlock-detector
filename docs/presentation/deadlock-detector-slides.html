@@ -755,8 +755,8 @@ body.editing [contenteditable="true"] { outline: 2px dashed rgba(255, 181, 71, 0
         </div>
         <div class="small-print reveal" style="--d:7"><span class="chip a">code lines: dladdr + addr2line · needs -g and PIE</span><span class="chip a">DD_DOT_OUT → picture (Graphviz)</span></div>
     </div>
-    <div class="foot"><span class="spk spk-d" data-spk="D">Speaker D</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span>3 Check</span><span class="on">4 Report</span></div><span class="num"><b>10</b> / 16</span></div>
-    <aside class="notes">[Speaker D · 0:40 · 71 words] Step four is report. This is real output. It says: deadlock detected, two threads in a loop. 514 and 513 are thread IDs from Linux. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint shows the fix. Always lock in the same order. Now ___ will show how we tested.</aside>
+    <div class="foot"><span class="spk spk-d" data-spk="D">Speaker D · นายธรรศธรณ์ เจียมตน · 6730300779</span><div class="steps"><span>1 Catch</span><span>2 Record</span><span>3 Check</span><span class="on">4 Report</span></div><span class="num"><b>10</b> / 16</span></div>
+    <aside class="notes">[Speaker D — นายธรรศธรณ์ เจียมตน · 0:40 · 71 words] Step four is report. This is real output. It says: deadlock detected, two threads in a loop. 514 and 513 are thread IDs from Linux. Thread 514 holds a lock from line 89. It is stuck at line 94. Thread 513 holds a lock from line 65. It is stuck at line 70. The hint shows the fix. Always lock in the same order. Now ___ will show how we tested.</aside>
 </section>
 
 <!-- 11 HOW WE TESTED -->
@@ -844,8 +844,8 @@ STEP 4 — type: timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadl
         </div>
         <div class="takeaway reveal" style="--d:6">Good for finding bugs. <span class="muted">Too slow to leave on all the time.</span></div>
     </div>
-    <div class="foot"><span class="spk spk-d" data-spk="D">Speaker D</span><span class="num"><b>13</b> / 16</span></div>
-    <aside class="notes">[Speaker D · 0:40 · 72 words] Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. No false alarm. Lockorder only gives a warning. In twenty runs, it found the deadlock every time. But the tool has a cost. Each lock and unlock costs about 70 nanoseconds more. That is 31 times slower. Use it for testing only. Now ___ will talk about the limits.</aside>
+    <div class="foot"><span class="spk spk-d" data-spk="D">Speaker D · นายธรรศธรณ์ เจียมตน · 6730300779</span><span class="num"><b>13</b> / 16</span></div>
+    <aside class="notes">[Speaker D — นายธรรศธรณ์ เจียมตน · 0:40 · 72 words] Without our tool, every deadlock test just hangs. With our tool, we get a report every time. The no_deadlock test gives no report. No false alarm. Lockorder only gives a warning. In twenty runs, it found the deadlock every time. But the tool has a cost. Each lock and unlock costs about 70 nanoseconds more. That is 31 times slower. Use it for testing only. Now ___ will talk about the limits.</aside>
 </section>
 
 <!-- 14 LIMITS & EARLY WARNING -->

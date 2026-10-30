@@ -56,6 +56,6 @@ timeout 15 env LD_PRELOAD=./build/libdetect.so ./build/no_deadlock; echo "exit=$
 
 ---
 
-ส่งต่อ Speaker D (สไลด์ 13):
+ส่งต่อ Speaker D (นายธรรศธรณ์ เจียมตน · สไลด์ 13):
 
 > Now ___ will show our results.
